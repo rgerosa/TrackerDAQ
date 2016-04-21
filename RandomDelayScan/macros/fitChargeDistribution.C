@@ -49,7 +49,7 @@ public:
 
 };
  
-void fitChargeDistribution(const char* file0, string outputDirectory){
+void fitChargeDistribution(const char* file0, string outputDirectory, bool saveCanvas = false){
 
   system(("mkdir -p "+outputDirectory).c_str());
 
@@ -99,58 +99,53 @@ void fitChargeDistribution(const char* file0, string outputDirectory){
   uint32_t detId = 0;
   uint32_t invalidFits = 0;
   
-  std::map<uint32_t,chargeShape*> fitMap;
-  chargeShape* chargeDist = NULL;
   cout<<"#### Start charge shape fits: nFits = "<<chargeDistributionMap.size()<<endl;
-  for(auto ihist : chargeDistributionMap){
-    detId++;
-    if(detId % 50 == 0) cout<<"\r"<<"iFit "<<100*double(detId)/chargeDistributionMap.size()<<" % ";
-    
-    chargeDist = new chargeShape();
-    chargeDist->charge = new RooRealVar(Form("charge_detid_%d",ihist.first),"",xMin,xMax);
-    RooArgList vars(*chargeDist->charge);
-    chargeDist->chargeDistribution = new RooDataHist(ihist.second->GetName(),"",vars,ihist.second);
-    chargeDist->mean_landau  = new RooRealVar(Form("mean_landau_detid_%d",ihist.first),"",ihist.second->GetMean(),xMin,xMax);
-    chargeDist->sigma_landau = new RooRealVar(Form("sigma_landau_detid_%d",ihist.first),"",ihist.second->GetRMS(),1.,100);
-    chargeDist->landau       =  new RooLandau(Form("landau_detid_%d",ihist.first),"",*chargeDist->charge,*chargeDist->mean_landau,*chargeDist->sigma_landau) ;
-    chargeDist->mean_gauss   = new RooRealVar(Form("mean_gauss_detid_%d",ihist.first),"",0.,-100,100);
-    chargeDist->sigma_gauss  = new RooRealVar(Form("sigma_gauss_detid_%d",ihist.first),"",10,1.,50);
-    chargeDist->gauss        = new RooGaussian(Form("gauss_detid_%d",ihist.first),"",*chargeDist->charge,*chargeDist->mean_gauss,*chargeDist->sigma_gauss);
-    chargeDist->landauXgauss = new RooFFTConvPdf(Form("landauXgauss_detid_%d",ihist.first),"",*chargeDist->charge,*chargeDist->landau,*chargeDist->gauss);
-    chargeDist->normalization = new RooRealVar(Form("normalization_detid_%d",ihist.first),"",ihist.second->Integral(),ihist.second->Integral()/10,ihist.second->Integral()*10);
-    chargeDist->totalPdf     = new RooExtendPdf(Form("totalPdf_detid_%d",ihist.first),"",*chargeDist->landauXgauss,*chargeDist->normalization);  
-    chargeDist->fitResult = chargeDist->totalPdf->fitTo(*chargeDist->chargeDistribution,RooFit::Range(xMin,xMax),RooFit::Extended(kTRUE),RooFit::NumCPU(4),RooFit::Save(kTRUE));
-    fitMap[ihist.first]  = chargeDist;
-    if(verbosity){
-      chargeDist->fitResult->Print();
-      cout<<"Fit status "<<chargeDist->fitResult->status()<<" covQual "<<chargeDist->fitResult->covQual()<<" numInvalidNLL "<<chargeDist->fitResult->numInvalidNLL()<<" edm "<<chargeDist->fitResult->edm()<<" minNll "<<chargeDist->fitResult->minNll()<<endl;
-    }
-
-    if(chargeDist->fitResult->status() != 0){
-      invalidFits++;
-      cerr<<"Problem with fit for detId "<<ihist.first<<" status not zero ! : "<<chargeDist->fitResult->status()<<endl;
-      chargeDist->fitResult->Print();
-    }
-    if(chargeDist->fitResult->covQual() != 3 and chargeDist->fitResult->status() == 0){
-      invalidFits++;
-      cerr<<"Problem with fit for detId "<<ihist.first<<" covariance matrix not status 3 ! .. status = "<<chargeDist->fitResult->covQual()<<endl;
-      chargeDist->fitResult->Print();
-    }
-  }
-
-  cout<<"#### end of fit stage: nFits "<<detId<<" Invalid Fits "<<invalidFits<<" : "<<100*double(invalidFits)/detId<<" % "<<endl;
   outputFile->cd();
   outputFile->mkdir("RooPlots");
   outputFile->cd("RooPlots");
-  RooPlot* frame = NULL;
-  cout<<"#### start storing plots "<<endl;
+
   TCanvas* canvas = new TCanvas("canvas","",600,600);
   canvas->SetTickx();
   canvas->SetTicky();
   canvas->cd();
-  for(auto ifit : fitMap){    
+
+  ofstream dump((outputDirectory+"/dumpMapPeak.txt").c_str());
+
+  for(auto ihist : chargeDistributionMap){
+    detId++;
+    if(detId % 10 == 0) cout<<"\r"<<"iFit "<<100*double(detId)/chargeDistributionMap.size()<<" % ";
     
-    RooPlot* frame = ifit.second->charge->frame();
+    RooRealVar  charge(Form("charge_detid_%d",ihist.first),"",xMin,xMax);
+    RooArgList  vars(charge);
+    RooDataHist chargeDistribution(ihist.second->GetName(),"",vars,ihist.second); 
+    RooRealVar  mean_landau(Form("mean_landau_detid_%d",ihist.first),"",ihist.second->GetMean(),xMin,xMax);
+    RooRealVar  sigma_landau(Form("sigma_landau_detid_%d",ihist.first),"",ihist.second->GetRMS(),1.,100);
+    RooLandau   landau(Form("landau_detid_%d",ihist.first),"",charge,mean_landau,sigma_landau) ;
+    RooRealVar  mean_gauss (Form("mean_gauss_detid_%d",ihist.first),"",0.,-150,150);
+    RooRealVar  sigma_gauss(Form("sigma_gauss_detid_%d",ihist.first),"",10,1.,50);
+    RooGaussian gauss(Form("gauss_detid_%d",ihist.first),"",charge,mean_gauss,sigma_gauss);
+    RooFFTConvPdf landauXgauss(Form("landauXgauss_detid_%d",ihist.first),"",charge,landau,gauss);
+    RooRealVar normalization(Form("normalization_detid_%d",ihist.first),"",ihist.second->Integral(),ihist.second->Integral()/5,ihist.second->Integral()*5);
+    RooExtendPdf totalPdf   (Form("totalPdf_detid_%d",ihist.first),"",landauXgauss,normalization);  
+    RooFitResult* fitResult = totalPdf.fitTo(chargeDistribution,RooFit::Range(xMin,xMax),RooFit::Extended(kTRUE),RooFit::Save(kTRUE));
+    if(verbosity){
+      fitResult->Print();
+      cout<<"Fit status "<<fitResult->status()<<" covQual "<<fitResult->covQual()<<" numInvalidNLL "<<fitResult->numInvalidNLL()<<" edm "<<fitResult->edm()<<" minNll "<<fitResult->minNll()<<endl;
+    }
+
+    if(fitResult->status() != 0){
+      invalidFits++;
+      cerr<<"Problem with fit for detId "<<ihist.first<<" status not zero ! : "<<fitResult->status()<<endl;
+      fitResult->Print();
+    }
+    if(fitResult->covQual() <= 1 and fitResult->status() == 0){
+      invalidFits++;
+      cerr<<"Problem with fit for detId "<<ihist.first<<" covariance matrix not status 3 ! .. status = "<<fitResult->covQual()<<endl;
+      fitResult->Print();
+    }
+
+    // plot to store in a root file
+    RooPlot* frame = charge.frame();
     frame->SetTitle("");
     frame->GetYaxis()->SetTitle("Events");
     frame->GetXaxis()->SetTitle("Cluster maxCharge");
@@ -158,56 +153,55 @@ void fitChargeDistribution(const char* file0, string outputDirectory){
     frame->GetXaxis()->SetTitleSize(0.045);
     frame->GetYaxis()->SetLabelSize(0.038);
     frame->GetXaxis()->SetLabelSize(0.038);
-    ifit.second->chargeDistribution->plotOn(frame,RooFit::MarkerColor(kBlack),RooFit::MarkerSize(1),RooFit::MarkerStyle(20),RooFit::LineColor(kBlack),RooFit::LineWidth(2),RooFit::DrawOption("EP"));
+    chargeDistribution.plotOn(frame,RooFit::MarkerColor(kBlack),RooFit::MarkerSize(1),RooFit::MarkerStyle(20),RooFit::LineColor(kBlack),RooFit::LineWidth(2),RooFit::DrawOption("EP"));
     
-    RooArgList list = ifit.second->fitResult->floatParsFinal();
-    ifit.second->totalPdf->paramOn(frame,RooFit::Parameters(list),RooFit::Layout(0.58,0.85,0.60));    
-    ifit.second->totalPdf->plotOn(frame,RooFit::LineColor(kRed));        
-    float chi2 = frame->chiSquare(list.getSize());
+    RooArgList parlist = fitResult->floatParsFinal();
+    totalPdf.paramOn(frame,RooFit::Parameters(parlist),RooFit::Layout(0.58,0.85,0.60));    
+    totalPdf.plotOn(frame,RooFit::LineColor(kRed));        
+    float chi2 = frame->chiSquare(parlist.getSize());
     TPaveLabel *t1 = new TPaveLabel(0.7,0.8,0.9,0.92, Form("#chi^{2}/ndf = %f",chi2),"BRNDC"); 
     t1->SetFillColor(0);
     t1->SetFillStyle(0);
     t1->SetBorderSize(0);
     t1->Draw("same");
     frame->addObject(t1) ; 
-    frame->Write(ifit.second->charge->GetName(),TObject::kOverwrite);    
-    //    for canvas
-  }
-  outputFile->cd();
-  for(auto ifit : fitMap){    
-    
-    RooPlot* frame2 = ifit.second->charge->frame();
-    frame2->SetTitle("");
-    frame2->GetYaxis()->SetTitle("Events");
-    frame2->GetXaxis()->SetTitle("Cluster maxCharge");
-    frame2->GetYaxis()->SetTitleSize(0.045);
-    frame2->GetXaxis()->SetTitleSize(0.045);
-    frame2->GetYaxis()->SetLabelSize(0.038);
-    frame2->GetXaxis()->SetLabelSize(0.038);
-    ifit.second->chargeDistribution->plotOn(frame2,RooFit::MarkerColor(kBlack),RooFit::MarkerSize(1),RooFit::MarkerStyle(20),RooFit::LineColor(kBlack),RooFit::LineWidth(2),RooFit::DrawOption("EP"));
-    RooArgList list = ifit.second->fitResult->floatParsFinal();
-    ifit.second->totalPdf->paramOn(frame2,RooFit::Parameters(list),RooFit::Layout(0.58,0.85,0.70));    
-    frame2->getAttText()->SetTextSize(0.015);
-    ifit.second->totalPdf->plotOn(frame2,RooFit::LineColor(kRed));        
-    float chi2 = frame2->chiSquare(list.getSize());
-    TPaveLabel *t1 = new TPaveLabel(0.7,0.8,0.88,0.94, Form("#chi^{2}/ndf = %f",chi2),"BRNDC"); 
-    t1->SetFillColor(0);
-    t1->SetFillStyle(0);
-    t1->SetBorderSize(0);
-    t1->Draw("same");
-    frame2->addObject(t1) ; 
-    frame2->Draw();    
-    canvas->SaveAs((outputDirectory+"/"+string(ifit.second->charge->GetName())+".png").c_str(),"png");
-  }
-  
-  cout<<"#### start output text file "<<endl;
-  ofstream dump((outputDirectory+"/dumpMapPeak.txt").c_str());
-  for(auto ifit : fitMap){
-    TF1* funz = ifit.second->totalPdf->asTF( RooArgList(*ifit.second->charge));
-    dump<<ifit.first<<"   "<<funz->GetMaximumX(xMin,xMax)<<"\n";
-  }
-  dump.close();
+    frame->Write(charge.GetName(),TObject::kOverwrite);    
 
+    // plot to store in canvas
+    if(saveCanvas){
+      RooPlot* frame2 = charge.frame();
+      frame2->SetTitle("");
+      frame2->GetYaxis()->SetTitle("Events");
+      frame2->GetXaxis()->SetTitle("Cluster maxCharge");
+      frame2->GetYaxis()->SetTitleSize(0.045);
+      frame2->GetXaxis()->SetTitleSize(0.045);
+      frame2->GetYaxis()->SetLabelSize(0.038);
+      frame2->GetXaxis()->SetLabelSize(0.038);
+      chargeDistribution.plotOn(frame2,RooFit::MarkerColor(kBlack),RooFit::MarkerSize(1),RooFit::MarkerStyle(20),RooFit::LineColor(kBlack),RooFit::LineWidth(2),RooFit::DrawOption("EP"));
+      totalPdf.paramOn(frame2,RooFit::Parameters(parlist),RooFit::Layout(0.58,0.85,0.70));    
+      frame2->getAttText()->SetTextSize(0.015);
+      totalPdf.plotOn(frame2,RooFit::LineColor(kRed));        
+      TPaveLabel *t2 = new TPaveLabel(0.7,0.8,0.88,0.94, Form("#chi^{2}/ndf = %f",chi2),"BRNDC"); 
+      t2->SetFillColor(0);
+      t2->SetFillStyle(0);
+      t2->SetBorderSize(0);
+      t2->Draw("same");
+      frame2->addObject(t1) ; 
+      frame2->Draw();    
+      canvas->SaveAs((outputDirectory+"/"+string(charge.GetName())+".png").c_str(),"png");
+      if(t2) delete t2;
+    }
+
+    TF1* funz = totalPdf.asTF( RooArgList(charge));
+    dump<<ihist.first<<"   "<<funz->GetMaximumX(xMin,xMax)<<"\n";
+
+    if(funz) delete funz;
+    if(t1) delete t1;
+    if(fitResult) delete fitResult;
+  }
+
+  cout<<"#### end of fit stage: nFits "<<detId<<" Invalid Fits "<<invalidFits<<" : "<<100*double(invalidFits)/detId<<" % "<<endl;
+  dump.close();
   outputFile->Close();
 
 
