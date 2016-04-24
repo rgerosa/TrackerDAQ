@@ -62,9 +62,9 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
 
   // open the file and prepare the cluster tree
   cout<<"########### fitChargeDistribution analysis ##############"<<endl;
-  TFile *_file0 = TFile::Open(file0);
-  TTree* clusters = (TTree*)_file0->Get("analysis/trackerDPG/clusters");
-
+  std::unique_ptr<TFile> _file0 (TFile::Open(file0));
+  std::unique_ptr<TTree> clusters ((TTree*)_file0->Get("analysis/trackerDPG/clusters"));
+  
   clusters->SetAlias("subdetid","int((detid-0x10000000)/0x2000000)");
   clusters->SetAlias("barrellayer","int((detid%33554432)/0x4000)");
   clusters->SetAlias("TIDlayer","int((detid%33554432)/0x800)%4");
@@ -72,18 +72,16 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
   clusters->SetAlias("TECMlayer","int((detid%33554432)/0x4000)-16");
   clusters->SetAlias("R","sqrt(clglobalX**2+clglobalY**2+clglobalZ**2)");
   
-  TFile* outputFile = new TFile((outputDirectory+"/outputCharge.root").c_str(),"RECREATE");
-  outputFile->cd();
-
   // apply common preselection cuts on events, track and cluster quantities
   // make a index as a funcion of det id
   std::map<uint32_t,std::shared_ptr<TH1F> > chargeDistributionMap;
 
-  TTreeReader reader(clusters);
+  TTreeReader reader(clusters.get());
   TTreeReaderValue<uint32_t> detid  (reader,"detid");
   TTreeReaderValue<float> maxCharge (reader,"maxCharge");
   TTreeReaderValue<bool>  onTrack   (reader,"onTrack");
   TTreeReaderValue<float> angle     (reader,"angle");
+
   
   uint32_t iCluster = 0;
   cout<<"### loop on clusters tree: nClusters "<<clusters->GetEntries()<<endl;
@@ -100,9 +98,8 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
   cout<<"#### Map size = "<<chargeDistributionMap.size()<<endl;
   uint32_t detId = 0;
   uint32_t invalidFits = 0;
-  
   cout<<"#### Start charge shape fits: nFits = "<<chargeDistributionMap.size()<<endl;
-  outputFile->cd();
+  std::unique_ptr<TFile> outputFile (new TFile((outputDirectory+"/outputCharge.root").c_str(),"RECREATE"));
   outputFile->mkdir("RooPlots");
   outputFile->cd("RooPlots");
 
@@ -123,10 +120,10 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
     RooRealVar  sigma_gauss(Form("sigma_gauss_detid_%d",ihist.first),"",10,1.,50);
     RooGaussian gauss(Form("gauss_detid_%d",ihist.first),"",charge,mean_gauss,sigma_gauss);
     RooFFTConvPdf landauXgauss(Form("landauXgauss_detid_%d",ihist.first),"",charge,landau,gauss);
-    RooRealVar normalization(Form("normalization_detid_%d",ihist.first),"",ihist.second->Integral(),ihist.second->Integral()/5,ihist.second->Integral()*5);
-    RooExtendPdf totalPdf   (Form("totalPdf_detid_%d",ihist.first),"",landauXgauss,normalization);  
+    RooRealVar   normalization(Form("normalization_detid_%d",ihist.first),"",ihist.second->Integral(),ihist.second->Integral()/5,ihist.second->Integral()*5);
+    RooExtendPdf totalPdf (Form("totalPdf_detid_%d",ihist.first),"",landauXgauss,normalization);
 
-    RooFitResult* fitResult = totalPdf.fitTo(chargeDistribution,RooFit::Range(xMin,xMax),RooFit::Extended(kTRUE),RooFit::Save(kTRUE));
+    std::auto_ptr<RooFitResult> fitResult(totalPdf.fitTo(chargeDistribution,RooFit::Range(xMin,xMax),RooFit::Extended(kTRUE),RooFit::Save(kTRUE)));
     if(verbosity){
       fitResult->Print();
       cout<<"Fit status "<<fitResult->status()<<" covQual "<<fitResult->covQual()<<" numInvalidNLL "<<fitResult->numInvalidNLL()<<" edm "<<fitResult->edm()<<" minNll "<<fitResult->minNll()<<endl;
@@ -145,6 +142,7 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
 
     // plot to store in a root file
     RooPlot* frame = charge.frame();
+    frame->SetName(Form("frame_%s",charge.GetName()));
     frame->SetTitle("");
     frame->GetYaxis()->SetTitle("Events");
     frame->GetXaxis()->SetTitle("Cluster maxCharge");
@@ -158,22 +156,23 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
     totalPdf.paramOn(frame,RooFit::Parameters(parlist),RooFit::Layout(0.58,0.85,0.60));    
     totalPdf.plotOn(frame,RooFit::LineColor(kRed));        
     float chi2 = frame->chiSquare(parlist.getSize());
-    TPaveLabel *t1 = new TPaveLabel(0.7,0.8,0.9,0.92, Form("#chi^{2}/ndf = %f",chi2),"BRNDC"); 
+    std::auto_ptr<TPaveLabel> t1 (new TPaveLabel(0.7,0.8,0.9,0.92, Form("#chi^{2}/ndf = %f",chi2),"BRNDC")); 
     t1->SetFillColor(0);
     t1->SetFillStyle(0);
     t1->SetBorderSize(0);
     t1->Draw("same");
-    frame->addObject(t1) ; 
+    frame->addObject(t1.get()) ; 
     frame->Write(charge.GetName(),TObject::kOverwrite);    
 
     // plot to store in canvas
     if(saveCanvas){
 
-      TCanvas* canvas = new TCanvas("canvas","",600,600);
+      std::auto_ptr<TCanvas> canvas(new TCanvas("canvas","",600,600));
       canvas->SetTickx();
       canvas->SetTicky();
 
       RooPlot* frame2 = charge.frame();
+      frame2->SetName(Form("frame_%s",charge.GetName()));
       frame2->SetTitle("");
       frame2->GetYaxis()->SetTitle("Events");
       frame2->GetXaxis()->SetTitle("Cluster maxCharge");
@@ -182,35 +181,46 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
       frame2->GetYaxis()->SetLabelSize(0.038);
       frame2->GetXaxis()->SetLabelSize(0.038);
       chargeDistribution.plotOn(frame2,RooFit::MarkerColor(kBlack),RooFit::MarkerSize(1),RooFit::MarkerStyle(20),RooFit::LineColor(kBlack),RooFit::LineWidth(2),RooFit::DrawOption("EP"));
-      //      totalPdf.paramOn(frame2,RooFit::Parameters(parlist),RooFit::Layout(0.58,0.85,0.70));    
+      totalPdf.paramOn(frame2,RooFit::Parameters(parlist),RooFit::Layout(0.58,0.85,0.70));    
       frame2->getAttText()->SetTextSize(0.015);
       totalPdf.plotOn(frame2,RooFit::LineColor(kRed));        
-      TPaveLabel *t2 = new TPaveLabel(0.7,0.8,0.88,0.94, Form("#chi^{2}/ndf = %f",chi2),"BRNDC"); 
+      std::auto_ptr<TPaveLabel> t2 (new TPaveLabel(0.7,0.8,0.88,0.94, Form("#chi^{2}/ndf = %f",chi2),"BRNDC")); 
       t2->SetFillColor(0);
       t2->SetFillStyle(0);
       t2->SetBorderSize(0);
       t2->Draw("same");
-      frame2->addObject(t2) ; 
+      frame2->addObject(t2.get()) ; 
       frame2->Draw();    
       canvas->SaveAs((outputDirectory+"/"+string(charge.GetName())+".png").c_str(),"png");
-      if(t2) delete t2;
-      if(canvas) delete canvas;
     }
     
-    TF1* funz = totalPdf.asTF(vars);
-    mapCharge[to_string(ihist.first)] = to_string(funz->GetMaximumX(xMin,xMax));
-    if(funz) delete funz;
-    if(t1) delete t1;
-    if(fitResult) delete fitResult;
-    
-  }
+    RooArgList funzParam = RooArgList(*totalPdf.getParameters(chargeDistribution));
+    std::auto_ptr<TF1> funz(totalPdf.asTF(charge,funzParam,charge));    // normalized to one
+    /*
+    // in case compare peak height: define integration region with the histogram bin width
+    charge.setRange("max",
+		    funz->GetMaximumX(xMin,xMax)-ihist.second->GetBinWidth(ihist.second->FindBin(funz->GetMaximumX(xMin,xMax)))/2,
+		    funz->GetMaximumX(xMin,xMax)+ihist.second->GetBinWidth(ihist.second->FindBin(funz->GetMaximumX(xMin,xMax)))/2);
+    // define an integral in that range
+    RooRealVar* iVal = (RooRealVar*) totalPdf.createIntegral(charge, RooFit::NormSet(charge), RooFit::Range("max"));
 
+    // multiply integral value time the normalization
+    cout<<" hist max "<<ihist.second->GetMaximum()<<" funz "<<iVal->getVal()<<" "<<iVal->getVal()*normalization.getVal()<<endl;
+    */
+    mapCharge[to_string(ihist.first)] = to_string(funz->GetMaximumX(xMin,xMax));    
+  }
+  
   cout<<"#### end of fit stage: nFits "<<detId<<" Invalid Fits "<<invalidFits<<" : "<<100*double(invalidFits)/detId<<" % "<<endl;
+  cout<<"#### Dump channel map"<<endl;
   ofstream dump((outputDirectory+"/dumpMapPeak.txt").c_str());
   for(auto imap : mapCharge)
     dump<<imap.first<<"   "<<imap.second<<"\n";
   dump.close();
+  
+  cout<<"#### Close output Root file"<<endl;
+  outputFile->cd();
   outputFile->Close();
+
   
 }
 
