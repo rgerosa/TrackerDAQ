@@ -9,7 +9,7 @@ config.General.transferLogs = False
 config.General.workArea     = 'crab_trackerDPG'  # Make sure you set this parameter
 
 config.JobType.psetName         = 'trackerdpganalysis_cfg.py'
-config.JobType.pyCfgParams      = 'delayStep=10'
+config.JobType.pyCfgParams      = ['delayStep=10']
 config.JobType.pluginName       = 'Analysis'
 config.JobType.outputFiles      = ['trackerDPG.root']
 config.JobType.allowUndistributedCMSSW = True
