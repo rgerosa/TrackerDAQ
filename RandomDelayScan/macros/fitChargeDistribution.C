@@ -108,7 +108,6 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
 
   for(auto ihist : chargeDistributionMap){
     cout.flush();
-    if(detId > 50) continue;
     if(detId % 100 == 0) cout<<"\r"<<"iFit "<<100*double(detId)/double(chargeDistributionMap.size())<<" % ";    
     detId++;
 
