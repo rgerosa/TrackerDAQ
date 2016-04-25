@@ -81,7 +81,6 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
   TTreeReaderValue<float> maxCharge (reader,"maxCharge");
   TTreeReaderValue<bool>  onTrack   (reader,"onTrack");
   TTreeReaderValue<float> angle     (reader,"angle");
-
   
   uint32_t iCluster = 0;
   cout<<"### loop on clusters tree: nClusters "<<clusters->GetEntries()<<endl;
@@ -91,6 +90,7 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
     iCluster++;
     if(chargeDistributionMap[*detid].get() == 0 or chargeDistributionMap[*detid].get() == NULL)
       chargeDistributionMap[*detid] = std::shared_ptr<TH1F>(new TH1F(Form("chargeDistribution_detid_%d",*detid),"",nBin,xMin,xMax));
+    chargeDistributionMap[*detid]->SetDirectory(0); // detached from TFile
     if(not *onTrack or *angle < 0 or *maxCharge >= 254) continue;
     chargeDistributionMap[*detid]->Fill(*maxCharge);    
   }
@@ -100,13 +100,15 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
   uint32_t invalidFits = 0;
   cout<<"#### Start charge shape fits: nFits = "<<chargeDistributionMap.size()<<endl;
   std::unique_ptr<TFile> outputFile (new TFile((outputDirectory+"/outputCharge.root").c_str(),"RECREATE"));
-  outputFile->mkdir("RooPlots");
-  outputFile->cd("RooPlots");
 
   map<string,string> mapCharge;
+  std::auto_ptr<TCanvas> canvas(new TCanvas("canvas","",600,600));
+  canvas->SetTickx();
+  canvas->SetTicky();
 
   for(auto ihist : chargeDistributionMap){
     cout.flush();
+    if(detId > 50) continue;
     if(detId % 100 == 0) cout<<"\r"<<"iFit "<<100*double(detId)/double(chargeDistributionMap.size())<<" % ";    
     detId++;
 
@@ -139,9 +141,9 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
       cerr<<"Problem with fit for detId "<<ihist.first<<" covariance matrix not status 3 ! .. status = "<<fitResult->covQual()<<endl;
       fitResult->Print();
     }
-
+    
     // plot to store in a root file
-    RooPlot* frame = charge.frame();
+    std::shared_ptr<RooPlot> frame (charge.frame());
     frame->SetName(Form("frame_%s",charge.GetName()));
     frame->SetTitle("");
     frame->GetYaxis()->SetTitle("Events");
@@ -150,48 +152,25 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
     frame->GetXaxis()->SetTitleSize(0.045);
     frame->GetYaxis()->SetLabelSize(0.038);
     frame->GetXaxis()->SetLabelSize(0.038);
-    chargeDistribution.plotOn(frame,RooFit::MarkerColor(kBlack),RooFit::MarkerSize(1),RooFit::MarkerStyle(20),RooFit::LineColor(kBlack),RooFit::LineWidth(2),RooFit::DrawOption("EP"));
-    
+    chargeDistribution.plotOn(frame.get(),RooFit::MarkerColor(kBlack),RooFit::MarkerSize(1),RooFit::MarkerStyle(20),RooFit::LineColor(kBlack),RooFit::LineWidth(2),RooFit::DrawOption("EP"));    
     RooArgList parlist = fitResult->floatParsFinal();
-    totalPdf.paramOn(frame,RooFit::Parameters(parlist),RooFit::Layout(0.58,0.85,0.60));    
-    totalPdf.plotOn(frame,RooFit::LineColor(kRed));        
+    totalPdf.paramOn(frame.get(),RooFit::Parameters(parlist),RooFit::Layout(0.58,0.85,0.60));    
+    frame->getAttText()->SetTextSize(0.015);
+    totalPdf.plotOn(frame.get(),RooFit::LineColor(kRed));        
     float chi2 = frame->chiSquare(parlist.getSize());
-    std::auto_ptr<TPaveLabel> t1 (new TPaveLabel(0.7,0.8,0.9,0.92, Form("#chi^{2}/ndf = %f",chi2),"BRNDC")); 
+    std::auto_ptr<TPaveLabel> t1 (new TPaveLabel(0.7,0.8,0.88,0.94, Form("#chi^{2}/ndf = %f",chi2),"BRNDC")); 
     t1->SetFillColor(0);
     t1->SetFillStyle(0);
-    t1->SetBorderSize(0);
+    t1->SetBorderSize(0);    
+    canvas->cd();
+    frame->Draw();
     t1->Draw("same");
-    frame->addObject(t1.get()) ; 
-    frame->Write(charge.GetName(),TObject::kOverwrite);    
+    canvas->Write(frame->GetName()); 
 
     // plot to store in canvas
     if(saveCanvas){
-
-      std::auto_ptr<TCanvas> canvas(new TCanvas("canvas","",600,600));
-      canvas->SetTickx();
-      canvas->SetTicky();
-
-      RooPlot* frame2 = charge.frame();
-      frame2->SetName(Form("frame_%s",charge.GetName()));
-      frame2->SetTitle("");
-      frame2->GetYaxis()->SetTitle("Events");
-      frame2->GetXaxis()->SetTitle("Cluster maxCharge");
-      frame2->GetYaxis()->SetTitleSize(0.045);
-      frame2->GetXaxis()->SetTitleSize(0.045);
-      frame2->GetYaxis()->SetLabelSize(0.038);
-      frame2->GetXaxis()->SetLabelSize(0.038);
-      chargeDistribution.plotOn(frame2,RooFit::MarkerColor(kBlack),RooFit::MarkerSize(1),RooFit::MarkerStyle(20),RooFit::LineColor(kBlack),RooFit::LineWidth(2),RooFit::DrawOption("EP"));
-      totalPdf.paramOn(frame2,RooFit::Parameters(parlist),RooFit::Layout(0.58,0.85,0.70));    
-      frame2->getAttText()->SetTextSize(0.015);
-      totalPdf.plotOn(frame2,RooFit::LineColor(kRed));        
-      std::auto_ptr<TPaveLabel> t2 (new TPaveLabel(0.7,0.8,0.88,0.94, Form("#chi^{2}/ndf = %f",chi2),"BRNDC")); 
-      t2->SetFillColor(0);
-      t2->SetFillStyle(0);
-      t2->SetBorderSize(0);
-      t2->Draw("same");
-      frame2->addObject(t2.get()) ; 
-      frame2->Draw();    
       canvas->SaveAs((outputDirectory+"/"+string(charge.GetName())+".png").c_str(),"png");
+      canvas->SaveAs((outputDirectory+"/"+string(charge.GetName())+".pdf").c_str(),"pdf");
     }
     
     RooArgList funzParam = RooArgList(*totalPdf.getParameters(chargeDistribution));
@@ -208,8 +187,9 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
     cout<<" hist max "<<ihist.second->GetMaximum()<<" funz "<<iVal->getVal()<<" "<<iVal->getVal()*normalization.getVal()<<endl;
     */
     mapCharge[to_string(ihist.first)] = to_string(funz->GetMaximumX(xMin,xMax));    
+    
   }
-  
+    
   cout<<"#### end of fit stage: nFits "<<detId<<" Invalid Fits "<<invalidFits<<" : "<<100*double(invalidFits)/detId<<" % "<<endl;
   cout<<"#### Dump channel map"<<endl;
   ofstream dump((outputDirectory+"/dumpMapPeak.txt").c_str());
@@ -218,8 +198,7 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
   dump.close();
   
   cout<<"#### Close output Root file"<<endl;
-  outputFile->cd();
-  outputFile->Close();
+  outputFile->Close("R");
 
   
 }
