@@ -130,7 +130,6 @@ void fitChargeDistribution(string file0,
     iEntry = selectedEvents->GetEntry(iCluster);
     if(iEntry < 0) continue;
     clusters->GetEntry(iEntry);
-    counter++;
     cout.flush();    
     if(iCluster % 1000000 == 0) cout<<"\r"<<"iCluster "<<100*double(iCluster)/selectedEvents->GetN()<<" % ";
     if(chargeDistributionMap[detid].get() == 0 or chargeDistributionMap[detid].get() == NULL)
