@@ -25,9 +25,6 @@
 
 #include "TkPulseShape.h"
 
-const float xMin = 20;
-const float xMax = 250;
-const int   nBin = 40;
 const bool  verbosity = false;
 
 class chargeShape{
@@ -50,9 +47,35 @@ public:
   RooFitResult*  fitResult;
 
 };
- 
-void fitChargeDistribution(const char* file0, string outputDirectory, bool saveCanvas = false){
 
+
+void setLimitsAndBinning(string & observable, float & xMin, float & xMax, int & nBin){
+
+  if(observable == "maxCharge"){
+    xMin = 20;
+    xMax = 250;
+    nBin = 40;
+  }
+  else if(observable == "clSignalOverNoise" or observable == "clCorrectedSignalOverNoise"){
+    xMin = 0;
+    xMax = 80;
+    nBin = 40;
+  }
+  else{
+    xMin = 20;
+    xMax = 250;
+    nBin = 40;
+  }
+}
+ 
+void fitChargeDistribution(string file0, 
+			   string file1,
+			   string outputDirectory, 
+			   string observable = "maxCharge", 
+			   float  delayMin = 0,
+			   float  delayMax = 10,
+			   bool   saveCanvas = false){
+  
   system(("mkdir -p "+outputDirectory).c_str());
 
   gStyle->SetOptStat(0);
@@ -62,50 +85,72 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
 
   // open the file and prepare the cluster tree
   cout<<"########### fitChargeDistribution analysis ##############"<<endl;
-  std::unique_ptr<TFile> _file0 (TFile::Open(file0));
+  std::unique_ptr<TFile> _file0 (TFile::Open(file0.c_str()));
+  std::unique_ptr<TFile> _file1 (TFile::Open(file1.c_str()));
   std::unique_ptr<TTree> clusters ((TTree*)_file0->Get("analysis/trackerDPG/clusters"));
-  
-  clusters->SetAlias("subdetid","int((detid-0x10000000)/0x2000000)");
-  clusters->SetAlias("barrellayer","int((detid%33554432)/0x4000)");
-  clusters->SetAlias("TIDlayer","int((detid%33554432)/0x800)%4");
-  clusters->SetAlias("TECPlayer","int((detid%33554432)/0x4000)-32");
-  clusters->SetAlias("TECMlayer","int((detid%33554432)/0x4000)-16");
-  clusters->SetAlias("R","sqrt(clglobalX**2+clglobalY**2+clglobalZ**2)");
+  clusters->AddFriend((TTree*)_file1->Get("analysis/trackerDPG/readoutMap"));
   
   // apply common preselection cuts on events, track and cluster quantities
   // make a index as a funcion of det id
   std::map<uint32_t,std::shared_ptr<TH1F> > chargeDistributionMap;
 
-  TTreeReader reader(clusters.get());
-  TTreeReaderValue<uint32_t> detid  (reader,"detid");
-  TTreeReaderValue<float> maxCharge (reader,"maxCharge");
-  TTreeReaderValue<bool>  onTrack   (reader,"onTrack");
-  TTreeReaderValue<float> angle     (reader,"angle");
+  uint32_t detid;
+  float    obs, maxCharge, angle, delay;
+  bool     onTrack;
+
+  // set the event selection
+  std::auto_ptr<TEventList> selectedEvents (new TEventList("selectedEvents","selectedEvents"));
+  clusters->Draw(">> selectedEvents",Form("onTrack && angle > 0 && maxCharge < 254 && abs(delay) >= %f && abs(delay) < %f",delayMin,delayMax));
+  selectedEvents->Print();
+  clusters->SetEventList(selectedEvents.get());
   
-  uint32_t iCluster = 0;
-  cout<<"### loop on clusters tree: nClusters "<<clusters->GetEntries()<<endl;
-  while(reader.Next()){
-    cout.flush();
-    if(iCluster % 1000000 == 0) cout<<"\r"<<"iCluster "<<100*double(iCluster)/clusters->GetEntries()<<" % ";
-    iCluster++;
-    if(chargeDistributionMap[*detid].get() == 0 or chargeDistributionMap[*detid].get() == NULL)
-      chargeDistributionMap[*detid] = std::shared_ptr<TH1F>(new TH1F(Form("chargeDistribution_detid_%d",*detid),"",nBin,xMin,xMax));
-    chargeDistributionMap[*detid]->SetDirectory(0); // detached from TFile
-    if(not *onTrack or *angle < 0 or *maxCharge >= 254) continue;
-    chargeDistributionMap[*detid]->Fill(*maxCharge);    
+  // set only some branches
+  clusters->SetBranchStatus("*",kFALSE);
+  clusters->SetBranchStatus("detid",kTRUE);
+  clusters->SetBranchStatus(observable.c_str(),kTRUE);
+  clusters->SetBranchStatus("maxCharge",kTRUE);
+  clusters->SetBranchStatus("onTrack",kTRUE);
+  clusters->SetBranchStatus("angle",kTRUE);
+
+  clusters->SetBranchAddress("detid",&detid);
+  clusters->SetBranchAddress(observable.c_str(),&obs);
+  clusters->SetBranchAddress("maxCharge",&maxCharge);
+  clusters->SetBranchAddress("onTrack",&onTrack);
+  clusters->SetBranchAddress("angle",&angle);
+  
+  cout<<"### loop on clusters tree: nClusters "<<clusters->GetEntries()<<" surviving selections "<<selectedEvents->GetN()<<endl;
+  float xMin = 0., xMax = 0.;
+  int   nBin = 0;
+  // take ranges and binning asaf of the observable name
+  setLimitsAndBinning(observable,xMin,xMax,nBin);
+  
+  // loop on the selected events to fill the histogra map per dei id
+  long int iEntry = 0; 
+  for(long int iCluster = 0; iCluster < selectedEvents->GetN(); iCluster++){
+    iEntry = selectedEvents->GetEntry(iCluster);
+    if(iEntry < 0) continue;
+    clusters->GetEntry(iEntry);
+    counter++;
+    cout.flush();    
+    if(iCluster % 1000000 == 0) cout<<"\r"<<"iCluster "<<100*double(iCluster)/selectedEvents->GetN()<<" % ";
+    if(chargeDistributionMap[detid].get() == 0 or chargeDistributionMap[detid].get() == NULL)
+      chargeDistributionMap[detid] = std::shared_ptr<TH1F>(new TH1F(Form("chargeDistribution_detid_%d",detid),"",nBin,xMin,xMax));
+    chargeDistributionMap[detid]->SetDirectory(0); // detached from TFile
+    chargeDistributionMap[detid]->Fill(obs);    
   }
+  
   cout<<endl;
   cout<<"#### Map size = "<<chargeDistributionMap.size()<<endl;
   uint32_t detId = 0;
   uint32_t invalidFits = 0;
   cout<<"#### Start charge shape fits: nFits = "<<chargeDistributionMap.size()<<endl;
-  std::unique_ptr<TFile> outputFile (new TFile((outputDirectory+"/outputCharge.root").c_str(),"RECREATE"));
+  std::unique_ptr<TFile> outputFile (new TFile((outputDirectory+"/output"+observable+".root").c_str(),"RECREATE"));
 
   map<string,string> mapCharge;
   std::auto_ptr<TCanvas> canvas(new TCanvas("canvas","",600,600));
   canvas->SetTickx();
   canvas->SetTicky();
-
+  // start fit loop with landau convoluted with Gaussian
   for(auto ihist : chargeDistributionMap){
     cout.flush();
     if(detId % 100 == 0) cout<<"\r"<<"iFit "<<100*double(detId)/double(chargeDistributionMap.size())<<" % ";    
@@ -146,7 +191,7 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
     frame->SetName(Form("frame_%s",charge.GetName()));
     frame->SetTitle("");
     frame->GetYaxis()->SetTitle("Events");
-    frame->GetXaxis()->SetTitle("Cluster maxCharge");
+    frame->GetXaxis()->SetTitle(("Cluster "+observable).c_str());
     frame->GetYaxis()->SetTitleSize(0.045);
     frame->GetXaxis()->SetTitleSize(0.045);
     frame->GetYaxis()->SetLabelSize(0.038);
@@ -190,15 +235,15 @@ void fitChargeDistribution(const char* file0, string outputDirectory, bool saveC
   }
     
   cout<<"#### end of fit stage: nFits "<<detId<<" Invalid Fits "<<invalidFits<<" : "<<100*double(invalidFits)/detId<<" % "<<endl;
+  // make the detid:peak map to be plotted on  the tracker map through http://test-stripdbmonitor.web.cern.ch/test-stripdbmonitor/PrintTrackerMap/print_TrackerMap.php
   cout<<"#### Dump channel map"<<endl;
-  ofstream dump((outputDirectory+"/dumpMapPeak.txt").c_str());
+  ofstream dump((outputDirectory+"/dumpMapPeak"+observable+".txt").c_str());
   for(auto imap : mapCharge)
     dump<<imap.first<<"   "<<imap.second<<"\n";
   dump.close();
   
   cout<<"#### Close output Root file"<<endl;
   outputFile->Close("R");
-
   
 }
 
