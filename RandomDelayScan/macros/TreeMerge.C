@@ -1,43 +1,50 @@
-void TreeMerge(string destination, string reference, string sources ) {
-  
-  // make hadd from a command line
-  gSystem->Exec(Form("hadd -f %s %s",destination.c_str(),sources.c_str()));
+// Merge all the trees beloging to a delay setting: destination = merged file, reference is a single to take the delay map, sources are files to be merged
+void TreeMerge(string destination, string reference, string inputPath, bool cancelInputFiles = false) {
 
-  // then recompute the indices
+  system(("rm "+destination).c_str());
+
+  // make list of all inputFIles before creting the merge oen
+  system(("ls "+inputPath+" | grep root > file.temp").c_str());
+  ifstream infile;
+  string line;
+  vector<string> fileList;
+  infile.open("file.temp",ifstream::in);
+  if(infile.is_open()){
+    while(!infile.eof()){
+      getline(infile,line);
+      if(line != "" and TString(line).Contains(".root"))
+	fileList.push_back(line);
+    }
+  }
+  system("rm file.temp");
+
+  // make hadd from a command line
+  gSystem->Exec(Form("hadd -f %s %s/*root",destination.c_str(),inputPath.c_str()));
+
   std::cout << "Reindexing the element of the merged tree..."  << std::endl;
   TFile* f = TFile::Open(destination.c_str(),"update");
 
-  //clusters tree is the default one --> other added as friend in the analysis
-  // build an index on events tree according to runId and eventid
-  TTree* tree = (TTree*)f->Get("analysis/trackerDPG/events");
-  if(tree && tree->GetEntries())  
-    tree->BuildIndex("runid","eventid"); // make a index based on runid:eventid
-
-  // build an index on vertex tree according to vertexid and eventid
-  tree = (TTree*)f->Get("analysis/trackerDPG/vertices");
-  if(tree && tree->GetEntries())  tree->BuildIndex("vertexid","eventid"); // make a index based on runid:eventid
-  // build an index on vertex tree according to trackid and eventid 
-  int i=0;
-  while((tree = (TTree*)f->Get(Form("analysis/trackerDPG/tracks%d",i)))) {
-    if(tree->GetEntries()) 
-      tree->BuildIndex(Form("trackid%d",i),"eventid"); // index based on trackid and eventid
-    i++;
+  TFile* f2 = TFile::Open(reference.c_str());
+  TTree* tree = (TTree*)f2->FindObjectAny("psumap");
+  if(tree == 0 or tree == NULL){
+    cout<<"[TreeMerge] no psumap file --> stop here"<<endl;
+    return;
   }
 
-  // copy them from a referece
-  std::cout << "patching..." << std::endl;
-  TFile* f2 = TFile::Open(reference.c_str());
-  tree = (TTree*)f2->Get("analysis/trackerDPG/psumap");
-  f->cd("analysis/trackerDPG");
+  f->cd();
   TTree *newtree = tree->CloneTree();
-  // add an index per dcuId
   newtree->BuildIndex("dcuId"); // deti-id index
   newtree->Write("psumap",TObject::kOverwrite);
 
-  tree = (TTree*)f2->Get("analysis/trackerDPG/readoutMap");
-  f->cd("analysis/trackerDPG");
+  // Look at the redoutMap
+  tree = (TTree*)f2->FindObjectAny("readoutMap");
+  if(tree == 0 or tree == NULL){
+    cout<<"[TreeMerge] no readoutMap file --> stop here"<<endl;
+    return;
+  }
+  
+  f->cd();
   newtree = tree->CloneTree();
-  // add an index per detid
   newtree->BuildIndex("detid"); // det-id index
   newtree->Write("readoutMap",TObject::kOverwrite);
   f2->Close();
@@ -46,4 +53,12 @@ void TreeMerge(string destination, string reference, string sources ) {
   std::cout << "Saving merged file." << std::endl;
   f->Write();
   f->Close();
+
+  //cancel all the single files, keeping only the unmerged one
+  if(cancelInputFiles){
+    for(auto fileName : fileList){
+      cout<<"rm "+inputPath+"/"+fileName<<endl;
+      system(("rm "+inputPath+"/"+fileName).c_str());
+    }
+  }
 }
