@@ -1,16 +1,17 @@
 #include <vector>
 #include <iostream>
-#include <TFile.h>
-#include <TProfile.h>
-#include <TCanvas.h>
-#include <TTree.h>
-#include <TEventList.h>
-#include <TCut.h>
-#include <TGraphErrors.h>
-#include <TStyle.h>
-#include <TLatex.h>
-#include <TROOT.h>
-#include <TTreeReader.h>
+
+#include "TFile.h"
+#include "TProfile.h"
+#include "TCanvas.h"
+#include "TTree.h"
+#include "TEventList.h"
+#include "TCut.h"
+#include "TGraphErrors.h"
+#include "TStyle.h"
+#include "TLatex.h"
+#include "TROOT.h"
+#include "TTreeReader.h"
 
 #include "RooRealVar.h"
 #include "RooArgList.h"
@@ -23,7 +24,7 @@
 #include "RooPlot.h"
 #include "TPaveLabel.h"
 
-#include "TkPulseShape.h"
+#include "delayUtils.h"
 
 const bool  verbosity = false;
 
@@ -47,33 +48,13 @@ public:
   RooFitResult*  fitResult;
 
 };
-
-
-void setLimitsAndBinning(string & observable, float & xMin, float & xMax, int & nBin){
-
-  if(observable == "maxCharge"){
-    xMin = 20;
-    xMax = 250;
-    nBin = 40;
-  }
-  else if(observable == "clSignalOverNoise" or observable == "clCorrectedSignalOverNoise"){
-    xMin = 0;
-    xMax = 80;
-    nBin = 40;
-  }
-  else{
-    xMin = 20;
-    xMax = 250;
-    nBin = 40;
-  }
-}
  
 void fitChargeDistribution(string file0, 
-			   string file1,
 			   string outputDirectory, 
-			   string observable = "maxCharge", 
+			   string observable = "maxCharge", 			   
 			   float  delayMin = 0,
 			   float  delayMax = 10,
+			   bool   applyCorrection = true,
 			   bool   saveCanvas = false){
   
   system(("mkdir -p "+outputDirectory).c_str());
@@ -86,66 +67,88 @@ void fitChargeDistribution(string file0,
   // open the file and prepare the cluster tree
   cout<<"########### fitChargeDistribution analysis ##############"<<endl;
   std::unique_ptr<TFile> _file0 (TFile::Open(file0.c_str()));
-  std::unique_ptr<TFile> _file1 (TFile::Open(file1.c_str()));
-  std::unique_ptr<TTree> clusters ((TTree*)_file0->Get("analysis/trackerDPG/clusters"));
-  clusters->AddFriend((TTree*)_file1->Get("analysis/trackerDPG/readoutMap"));
+  std::unique_ptr<TTree> clusters   ((TTree*)_file0->Get("analysis/trackerDPG/clusters"));
+  std::unique_ptr<TTree> readoutMap ((TTree*)_file0->Get("analysis/trackerDPG/readoutMap"));
   
   // apply common preselection cuts on events, track and cluster quantities
   // make a index as a funcion of det id
   std::map<uint32_t,std::shared_ptr<TH1F> > chargeDistributionMap;
 
-  uint32_t detid;
-  float    obs, maxCharge, angle, delay;
-  bool     onTrack;
-
-  // set the event selection
-  std::auto_ptr<TEventList> selectedEvents (new TEventList("selectedEvents","selectedEvents"));
-  clusters->Draw(">> selectedEvents",Form("onTrack && angle > 0 && maxCharge < 254 && abs(delay) >= %f && abs(delay) < %f",delayMin,delayMax));
-  selectedEvents->Print();
-  clusters->SetEventList(selectedEvents.get());
-  
   // set only some branches
+  uint32_t detid, runid, eventid, trackid;
+  float    obs, maxCharge, angle, clSignalOverNoise, clCorrectedSignalOverNoise;
+  bool     onTrack;
   clusters->SetBranchStatus("*",kFALSE);
+  clusters->SetBranchStatus("runid",kTRUE);
+  clusters->SetBranchStatus("eventid",kTRUE);
   clusters->SetBranchStatus("detid",kTRUE);
-  clusters->SetBranchStatus(observable.c_str(),kTRUE);
+  clusters->SetBranchStatus("trackid0",kTRUE);
   clusters->SetBranchStatus("maxCharge",kTRUE);
   clusters->SetBranchStatus("onTrack",kTRUE);
   clusters->SetBranchStatus("angle",kTRUE);
-
+  clusters->SetBranchStatus("clCorrectedSignalOverNoise",kTRUE);
+  clusters->SetBranchStatus("clSignalOverNoise",kTRUE);
+  clusters->SetBranchStatus(observable.c_str(),kTRUE);
+  clusters->SetBranchAddress("trackid0",&trackid);
+  clusters->SetBranchAddress("runid",&runid);
+  clusters->SetBranchAddress("eventid",&eventid);
   clusters->SetBranchAddress("detid",&detid);
-  clusters->SetBranchAddress(observable.c_str(),&obs);
   clusters->SetBranchAddress("maxCharge",&maxCharge);
   clusters->SetBranchAddress("onTrack",&onTrack);
   clusters->SetBranchAddress("angle",&angle);
-  
-  cout<<"### loop on clusters tree: nClusters "<<clusters->GetEntries()<<" surviving selections "<<selectedEvents->GetN()<<endl;
+  clusters->SetBranchAddress("clSignalOverNoise",&clSignalOverNoise);
+  clusters->SetBranchAddress("clCorrectedSignalOverNoise",&clCorrectedSignalOverNoise);
+  clusters->SetBranchAddress(observable.c_str(),&obs);
+
+  float delay;
+  readoutMap->SetBranchStatus("*",kFALSE);
+  readoutMap->SetBranchStatus("detid",kTRUE);
+  readoutMap->SetBranchStatus("delay",kTRUE);
+  readoutMap->SetBranchAddress("delay",&delay);
+
   float xMin = 0., xMax = 0.;
   int   nBin = 0;
   // take ranges and binning asaf of the observable name
   setLimitsAndBinning(observable,xMin,xMax,nBin);
   
   // loop on the selected events to fill the histogra map per dei id
-  long int iEntry = 0; 
-  for(long int iCluster = 0; iCluster < selectedEvents->GetN(); iCluster++){
-    iEntry = selectedEvents->GetEntry(iCluster);
-    if(iEntry < 0) continue;
-    clusters->GetEntry(iEntry);
+  long int selectedEvents = 0; 
+  for(long int iCluster = 0; iCluster < clusters->GetEntries(); iCluster++){
+
     cout.flush();    
-    if(iCluster % 1000000 == 0) cout<<"\r"<<"iCluster "<<100*double(iCluster)/selectedEvents->GetN()<<" % ";
+    if(iCluster % 1000000 == 0) cout<<"\r"<<"iCluster "<<100*double(iCluster)/clusters->GetEntries()<<" % ";
+
+    // apply cluster selections
+    clusters->GetEntry(iCluster);
+    if(observable == "maxCharge") // double set branch address not allowed
+      maxCharge = obs;
+
+    if(maxCharge >= 254 or angle < 0 or not onTrack) continue;
+    
+    //take the related event in the readOutmap
+    readoutMap->GetEntryWithIndex(detid);
+    if(fabs(delay) < delayMin or fabs(delay) > delayMax) continue;
+
+    selectedEvents++;
+    // fill histograms
     if(chargeDistributionMap[detid].get() == 0 or chargeDistributionMap[detid].get() == NULL)
       chargeDistributionMap[detid] = std::shared_ptr<TH1F>(new TH1F(Form("chargeDistribution_detid_%d",detid),"",nBin,xMin,xMax));
     chargeDistributionMap[detid]->SetDirectory(0); // detached from TFile
-    chargeDistributionMap[detid]->Fill(obs);    
+    if(not applyCorrection)
+      chargeDistributionMap[detid]->Fill(obs);    
+    else
+      chargeDistributionMap[detid]->Fill(obs*clCorrectedSignalOverNoise/clSignalOverNoise);          
   }
-  
-  cout<<endl;
+
+  cout<<"#### Total events: "<<clusters->GetEntries()<<" selected events : "<<selectedEvents<<endl;
   cout<<"#### Map size = "<<chargeDistributionMap.size()<<endl;
   uint32_t detId = 0;
   uint32_t invalidFits = 0;
   cout<<"#### Start charge shape fits: nFits = "<<chargeDistributionMap.size()<<endl;
   std::unique_ptr<TFile> outputFile (new TFile((outputDirectory+"/output"+observable+".root").c_str(),"RECREATE"));
 
-  map<string,string> mapCharge;
+  map<string,string> mapPeakCharge;
+  map<string,string> mapMeanCharge;
   std::auto_ptr<TCanvas> canvas(new TCanvas("canvas","",600,600));
   canvas->SetTickx();
   canvas->SetTicky();
@@ -229,17 +232,23 @@ void fitChargeDistribution(string file0,
     // multiply integral value time the normalization
     cout<<" hist max "<<ihist.second->GetMaximum()<<" funz "<<iVal->getVal()<<" "<<iVal->getVal()*normalization.getVal()<<endl;
     */
-    mapCharge[to_string(ihist.first)] = to_string(funz->GetMaximumX(xMin,xMax));    
-    
+    mapPeakCharge[to_string(ihist.first)] = to_string(funz->GetMaximumX(xMin,xMax));    
+    mapMeanCharge[to_string(ihist.first)] = to_string(mean_landau.getVal());
   }
     
   cout<<"#### end of fit stage: nFits "<<detId<<" Invalid Fits "<<invalidFits<<" : "<<100*double(invalidFits)/detId<<" % "<<endl;
   // make the detid:peak map to be plotted on  the tracker map through http://test-stripdbmonitor.web.cern.ch/test-stripdbmonitor/PrintTrackerMap/print_TrackerMap.php
-  cout<<"#### Dump channel map"<<endl;
-  ofstream dump((outputDirectory+"/dumpMapPeak"+observable+".txt").c_str());
-  for(auto imap : mapCharge)
-    dump<<imap.first<<"   "<<imap.second<<"\n";
-  dump.close();
+  cout<<"#### Dump peak channel map"<<endl;
+  ofstream dumpPeak((outputDirectory+"/dumpMapPeak"+observable+".txt").c_str());
+  for(auto imap : mapPeakCharge)
+    dumpPeak<<imap.first<<"   "<<imap.second<<"\n";
+  dumpPeak.close();
+
+  cout<<"#### Dump mean channel map"<<endl;
+  ofstream dumpMean((outputDirectory+"/dumpMapMean"+observable+".txt").c_str());
+  for(auto imap : mapMeanCharge)
+    dumpMean<<imap.first<<"   "<<imap.second<<"\n";
+  dumpMean.close();
   
   cout<<"#### Close output Root file"<<endl;
   outputFile->Close("R");
