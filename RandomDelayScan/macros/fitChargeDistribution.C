@@ -67,35 +67,22 @@ void fitChargeDistribution(string file0,
   // open the file and prepare the cluster tree
   cout<<"########### fitChargeDistribution analysis ##############"<<endl;
   std::unique_ptr<TFile> _file0 (TFile::Open(file0.c_str()));
-  std::unique_ptr<TTree> clusters   ((TTree*)_file0->Get("analysis/trackerDPG/clusters"));
-  std::unique_ptr<TTree> readoutMap ((TTree*)_file0->Get("analysis/trackerDPG/readoutMap"));
+  std::unique_ptr<TTree> clusters   ((TTree*)_file0->FindObjectAny("clusters"));
+  std::unique_ptr<TTree> readoutMap ((TTree*)_file0->FindObjectAny("readoutMap"));
   
   // apply common preselection cuts on events, track and cluster quantities
   // make a index as a funcion of det id
   std::map<uint32_t,std::shared_ptr<TH1F> > chargeDistributionMap;
-
+  
   // set only some branches
-  uint32_t detid, runid, eventid, trackid;
-  float    obs, maxCharge, angle, clSignalOverNoise, clCorrectedSignalOverNoise;
-  bool     onTrack;
+  uint32_t detid;
+  float    obs, clSignalOverNoise, clCorrectedSignalOverNoise;
   clusters->SetBranchStatus("*",kFALSE);
-  clusters->SetBranchStatus("runid",kTRUE);
-  clusters->SetBranchStatus("eventid",kTRUE);
   clusters->SetBranchStatus("detid",kTRUE);
-  clusters->SetBranchStatus("trackid0",kTRUE);
-  clusters->SetBranchStatus("maxCharge",kTRUE);
-  clusters->SetBranchStatus("onTrack",kTRUE);
-  clusters->SetBranchStatus("angle",kTRUE);
   clusters->SetBranchStatus("clCorrectedSignalOverNoise",kTRUE);
   clusters->SetBranchStatus("clSignalOverNoise",kTRUE);
   clusters->SetBranchStatus(observable.c_str(),kTRUE);
-  clusters->SetBranchAddress("trackid0",&trackid);
-  clusters->SetBranchAddress("runid",&runid);
-  clusters->SetBranchAddress("eventid",&eventid);
   clusters->SetBranchAddress("detid",&detid);
-  clusters->SetBranchAddress("maxCharge",&maxCharge);
-  clusters->SetBranchAddress("onTrack",&onTrack);
-  clusters->SetBranchAddress("angle",&angle);
   clusters->SetBranchAddress("clSignalOverNoise",&clSignalOverNoise);
   clusters->SetBranchAddress("clCorrectedSignalOverNoise",&clCorrectedSignalOverNoise);
   clusters->SetBranchAddress(observable.c_str(),&obs);
@@ -114,21 +101,16 @@ void fitChargeDistribution(string file0,
   // loop on the selected events to fill the histogra map per dei id
   long int selectedEvents = 0; 
   for(long int iCluster = 0; iCluster < clusters->GetEntries(); iCluster++){
-
+    
     cout.flush();    
     if(iCluster % 1000000 == 0) cout<<"\r"<<"iCluster "<<100*double(iCluster)/clusters->GetEntries()<<" % ";
 
     // apply cluster selections
     clusters->GetEntry(iCluster);
-    if(observable == "maxCharge") // double set branch address not allowed
-      maxCharge = obs;
-
-    if(maxCharge >= 254 or angle < 0 or not onTrack) continue;
-    
     //take the related event in the readOutmap
     readoutMap->GetEntryWithIndex(detid);
     if(fabs(delay) < delayMin or fabs(delay) > delayMax) continue;
-
+    
     selectedEvents++;
     // fill histograms
     if(chargeDistributionMap[detid].get() == 0 or chargeDistributionMap[detid].get() == NULL)
@@ -139,7 +121,7 @@ void fitChargeDistribution(string file0,
     else
       chargeDistributionMap[detid]->Fill(obs*clCorrectedSignalOverNoise/clSignalOverNoise);          
   }
-
+    
   cout<<"#### Total events: "<<clusters->GetEntries()<<" selected events : "<<selectedEvents<<endl;
   cout<<"#### Map size = "<<chargeDistributionMap.size()<<endl;
   uint32_t detId = 0;
@@ -228,10 +210,9 @@ void fitChargeDistribution(string file0,
 		    funz->GetMaximumX(xMin,xMax)+ihist.second->GetBinWidth(ihist.second->FindBin(funz->GetMaximumX(xMin,xMax)))/2);
     // define an integral in that range
     RooRealVar* iVal = (RooRealVar*) totalPdf.createIntegral(charge, RooFit::NormSet(charge), RooFit::Range("max"));
-
-    // multiply integral value time the normalization
     cout<<" hist max "<<ihist.second->GetMaximum()<<" funz "<<iVal->getVal()<<" "<<iVal->getVal()*normalization.getVal()<<endl;
     */
+    // multiply integral value time the normalization
     mapPeakCharge[to_string(ihist.first)] = to_string(funz->GetMaximumX(xMin,xMax));    
     mapMeanCharge[to_string(ihist.first)] = to_string(mean_landau.getVal());
   }

@@ -15,7 +15,7 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
 
   cout<<"### Load clusters tree "<<endl;
   // cluster tree
-  TTree* clustersTree = (TTree*) inputFile->Get("analysis/trackerDPG/clusters");
+  TTree* clustersTree = (TTree*) inputFile->FindObjectAny("clusters");
   if(clustersTree == 0 or clustersTree == NULL){
     cout<<"[skimTrees] no cluster tree found --> problem "<<endl;
     return;
@@ -23,7 +23,7 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
 
   // event tree
   cout<<"### Load and index the event tree "<<endl;
-  TTree* eventTree = (TTree*) inputFile->Get("analysis/trackerDPG/events");
+  TTree* eventTree = (TTree*) inputFile->FindObjectAny("events");
   if(eventTree == 0 or eventTree == NULL){
     cout<<"[skimTrees] no event tree found --> problem "<<endl;
     return;
@@ -32,7 +32,7 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
 
   // track tree
   cout<<"### Load and index the tracks0 tree "<<endl;
-  TTree* trackTree = (TTree*) inputFile->Get("analysis/trackerDPG/tracks0");
+  TTree* trackTree = (TTree*) inputFile->FindObjectAny("tracks0");
   if(trackTree == 0 or trackTree == NULL){
     cout<<"[skimTrees] no track tree found --> problem "<<endl;
     return;
@@ -41,7 +41,7 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
 
   // vertex tree
   cout<<"### Load and index the vertex tree "<<endl;
-  TTree* vertexTree = (TTree*) inputFile->Get("analysis/trackerDPG/vertices");
+  TTree* vertexTree = (TTree*) inputFile->FindObjectAny("vertices");
   if(vertexTree == 0 or vertexTree == NULL){
     cout<<"[skimTrees] no track tree found --> problem "<<endl;
     return;
@@ -85,7 +85,7 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
   
   cout<<"### Copy the PSU map in the output map "<<endl;
   //copy the PSU map
-  TTree* PSUmap = (TTree*) inputFile->Get("analysis/trackerDPG/psumap");
+  TTree* PSUmap = (TTree*) inputFile->FindObjectAny("psumap");
   if(PSUmap == 0 or PSUmap == NULL){
     cout<<"[skimTrees] no PSU map found --> problem "<<endl;
     return;
@@ -93,7 +93,7 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
   PSUmap->CloneTree()->Write("psumap",TObject::kOverwrite);
 
   cout<<"### Copy the readout map in the output map "<<endl;
-  TTree* readoutMap = (TTree*) inputFile->Get("analysis/trackerDPG/readoutMap");
+  TTree* readoutMap = (TTree*) inputFile->FindObjectAny("readoutMap");
   if(readoutMap == 0 or readoutMap == NULL){
     cout<<"[skimTrees] no readoutMap found --> problem "<<endl;
     return;
