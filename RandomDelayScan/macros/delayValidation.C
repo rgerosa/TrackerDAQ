@@ -69,34 +69,28 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
   corrections->SetBranchAddress("correction",&correction);
   
   // create vectors for the different Profiles
-  float yMin = 0, yMax = 0, xMin = 0, xMax = 0;
-  int   nBinsX = 0, nBinsY = 0;
-  setLimitsAndBinning("delay",xMin,xMax,nBinsX);
+  float yMin   = 0, yMax = 0;
+  int   nBinsY = 0;
+  vector<double> delayBins;
+  setLimitsAndBinning("delay",delayBins);
   setLimitsAndBinning(observable,yMin,yMax,nBinsY);
 
-  for(int ilayer = 0; ilayer < 4; ilayer++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TIB_layer%d",ilayer+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TIBlayers.push_back(temp);
-  }
-  for(int ilayer = 0; ilayer < 6; ilayer++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TOB_layer%d",ilayer+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TOBlayers.push_back(temp);
-  }
-  for(int ilayer = 0; ilayer < 3; ilayer++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TID_layer%d",ilayer+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TIDlayers.push_back(temp);
+  for(int ilayer = 0; ilayer < 4; ilayer++)
+    TIBlayers.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TIB_layer%d",ilayer+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+
+  for(int ilayer = 0; ilayer < 6; ilayer++)
+    TOBlayers.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TOB_layer%d",ilayer+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+  
+  for(int ilayer = 0; ilayer < 3; ilayer++)
+    TIDlayers.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TID_layer%d",ilayer+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+  
+  for(int ilayer = 0; ilayer < 9; ilayer++){
+    TECPTlayers.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TECP_layer%d_T",ilayer+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+    TECPtlayers.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TECP_layer%d_t",ilayer+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
   }
   for(int ilayer = 0; ilayer < 9; ilayer++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TECP_layer%d_T",ilayer+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TECPTlayers.push_back(temp);
-    temp = std::shared_ptr<TProfile>(new TProfile(Form("TECP_layer%d_t",ilayer+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TECPtlayers.push_back(temp);
-  }
-  for(int ilayer = 0; ilayer < 9; ilayer++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TECM_layer%d_T",ilayer+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TECMTlayers.push_back(temp);
-    temp = std::shared_ptr<TProfile>(new TProfile(Form("TECM_layer%d_t",ilayer+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TECMtlayers.push_back(temp);
+    TECMTlayers.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TECM_layer%d_T",ilayer+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+    TECMtlayers.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TECM_layer%d_t",ilayer+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
   }
 
   std::cout<<"Tree with nEntries "<<tree->GetEntries()<<std::endl;
@@ -249,36 +243,30 @@ void RPlots(const std::shared_ptr<TTree> & tree,
   corrections->SetBranchAddress("correction",&correction);
 
   // create vectors for the different Profiles
-  float yMin = 0, yMax = 0, xMin = 0, xMax = 0;
-  int   nBinsX = 0, nBinsY = 0;
-  setLimitsAndBinning("delay",xMin,xMax,nBinsX);
+  float yMin = 0, yMax = 0;
+  int   nBinsY = 0;
+  vector<double> delayBins;
+  setLimitsAndBinning("delay",delayBins);
   setLimitsAndBinning(observable,yMin,yMax,nBinsY);
   
   cout<<"create profiles  "<<endl;
   // create vectors
-  for(int iring = 0; iring < TIBRing.nDivision; iring++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TIB_ring%d",iring+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TIBrings.push_back(temp);
-  }
-  for(int iring = 0; iring < TOBRing.nDivision; iring++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TOB_ring%d",iring+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TOBrings.push_back(temp);
-  }
-  for(int iring = 0; iring < TIDRing.nDivision; iring++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TID_ring%d",iring+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TIDrings.push_back(temp);
+  for(int iring = 0; iring < TIBRing.nDivision; iring++)
+    TIBrings.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TIB_ring%d",iring+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+  
+  for(int iring = 0; iring < TOBRing.nDivision; iring++)
+    TOBrings.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TOB_ring%d",iring+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+  
+  for(int iring = 0; iring < TIDRing.nDivision; iring++)
+    TIDrings.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TID_ring%d",iring+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+  
+  for(int iring = 0; iring < TECRing.nDivision; iring++){
+    TECPTrings.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TECP_ring%d_T",iring+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+    TECPtrings.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TECP_ring%d_t",iring+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
   }
   for(int iring = 0; iring < TECRing.nDivision; iring++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TECP_ring%d_T",iring+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TECPTrings.push_back(temp);
-    temp = std::shared_ptr<TProfile>(new TProfile(Form("TECP_ring%d_t",iring+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TECPtrings.push_back(temp);
-  }
-  for(int iring = 0; iring < TECRing.nDivision; iring++){
-    std::shared_ptr<TProfile> temp (new TProfile(Form("TECM_ring%d_T",iring+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TECMTrings.push_back(temp);
-    temp = std::shared_ptr<TProfile>(new TProfile(Form("TECM_ring%d_t",iring+1),"",nBinsX,xMin,xMax,yMin,yMax));
-    TECMtrings.push_back(temp);
+    TECMTrings.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TECM_ring%d_T",iring+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
+    TECMtrings.push_back(std::shared_ptr<TProfile>(new TProfile(Form("TECM_ring%d_t",iring+1),"",delayBins.size()-1,&delayBins[0],yMin,yMax)));
   }
 
   std::cout<<"Tree with nEntries "<<tree->GetEntries()<<std::endl;
@@ -394,8 +382,8 @@ void delayValidation(string file0,
   std::cout<<"#############################"<<std::endl;
 
   std::cout<<"Open Input Files"<<std::endl;
-  std::auto_ptr<TFile> _file0 (TFile::Open(file0.c_str()));
-  std::auto_ptr<TFile> _file1 (TFile::Open(file1.c_str()));
+  std::shared_ptr<TFile> _file0 (TFile::Open(file0.c_str()));
+  std::shared_ptr<TFile> _file1 (TFile::Open(file1.c_str()));
   std::shared_ptr<TTree> clusters   ((TTree*)_file0->FindObjectAny("clusters"));
   std::shared_ptr<TTree> readoutMap ((TTree*)_file0->FindObjectAny("readoutMap"));
   std::shared_ptr<TTree> delayCorrections ((TTree*)_file1->FindObjectAny("delayCorrections"));  
@@ -453,6 +441,15 @@ void delayValidation(string file0,
     // store all the different plots
     std::shared_ptr<TCanvas> c8 (new TCanvas("c_layers","",800,650));  
     plotMaxima(c8,alllayers,outputDIR,"layers");
+
+    TIBlayers.clear();
+    TOBlayers.clear();
+    TIDlayers.clear();
+    TECPTlayers.clear();
+    TECPtlayers.clear();
+    TECMTlayers.clear();
+    TECMtlayers.clear();
+    alllayers.clear();
     
   }
   
@@ -510,6 +507,16 @@ void delayValidation(string file0,
 
     std::shared_ptr<TCanvas> c8b (new TCanvas("c_rings","",800,650));  
     plotMaxima(c8b,allrs,outputDIR,"rings");
+
+    TIBrs.clear();
+    TIDrs.clear();
+    TOBrs.clear();
+    TECPTrs.clear();
+    TECPtrs.clear();
+    TECMTrs.clear();
+    TECMtrs.clear();
+    allrs.clear();
+
   }
   
   if(plotPartitions){
@@ -544,6 +551,15 @@ void delayValidation(string file0,
     std::shared_ptr<TCanvas> c1 = prepareCanvas("Partitions",observable);
     plotAll(c1,allPartitions);
     c1->Print(Form("%s/Partitions.root",outputDIR.c_str()));
+
+    TIB.clear();
+    TID.clear();
+    TOB.clear();
+    TECPT.clear();
+    TECPt.clear();
+    TECMT.clear();
+    TECMt.clear();
+    allPartitions.clear();
   }
 }
 

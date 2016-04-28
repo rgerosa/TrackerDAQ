@@ -4,6 +4,7 @@
 #include "TString.h"
 #include "TkPulseShape.h"
 #include "CMS_lumi.h"
+#include "TFitResultPtr.h"
 
 // basic profile for maxCharge                                                                                                                                                 
 TProfile* frame;
@@ -32,6 +33,14 @@ void setLimitsAndBinning(const string & observable, float & xMin, float & xMax, 
     nBin = 40;
   } 
 
+  return;
+}
+
+void setLimitsAndBinning(const string & observable, vector<double> & limits){
+
+  if(observable == "delay")
+    limits = {-10.94,-9.9,-8.86,-7.82,-6.78,-5.74,-4.70,-3.66,-2.62,-1.58,-0.54,0.54,1.58,2.62,3.66,4.70,5.74,6.78,7.82,8.86,9.9,10.94};
+  
   return;
 }
 
@@ -88,7 +97,7 @@ void correctProfile(const std::shared_ptr<TProfile> & profile){
 }
 
 //// fitting profiles
-std::shared_ptr<TF1> fitProfile(const std::shared_ptr<TProfile> & prof, bool gaus = false){
+TFitResultPtr fitProfile(const std::shared_ptr<TProfile> & prof, bool gaus = false, string options = "", bool verbosity = false){
   std::shared_ptr<TF1> pulse;
   if(gaus) { // gaussina fit                                                                                                                                                   
     pulse = std::shared_ptr<TF1>(new TF1(Form("Gaus_%s",prof->GetName()),"gaus(0)",-10,10));
@@ -101,9 +110,10 @@ std::shared_ptr<TF1> fitProfile(const std::shared_ptr<TProfile> & prof, bool gau
     pulse->FixParameter(3,50);
   }
   gROOT->SetBatch(1);
-  prof->Fit(pulse.get(),"");
-  std::cout << "Profile Name "<<prof->GetName()<<" "<<"Maximum at " << pulse->GetMaximumX(-10,10) << std::endl;
-  return pulse;
+  TFitResultPtr result = prof->Fit(pulse.get(),(options+"S").c_str());
+  if(verbosity)
+    std::cout << "Profile Name "<<prof->GetName()<<" "<<"Maximum at " << pulse->GetMaximumX(-10,10) << std::endl;
+  return result;
 }
 
 // prepare a canvas for the final plot
@@ -136,8 +146,10 @@ std::shared_ptr<TCanvas> prepareCanvas(const string & name = "",const string & o
   CMS_lumi(c.get(),"");
   return c;
 }
+
 // plot all the profiles on a canvas
 void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TProfile> > & curves){
+
   canvas->cd();
   float yMin = 10000.;
   float yMax = -1.;
@@ -219,3 +231,40 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   
   return;
 }
+
+void saveAll(const std::map<uint32_t,std::shared_ptr<TProfile> > channelMap, const string & outputDIR, const string & observable){
+
+  std::shared_ptr<TFile> outputFile (new TFile((outputDIR+"/channelMap.root").c_str(),"RECREATE"));
+  outputFile->cd();
+  float yMin = 10000.;
+  float yMax = -1.;
+
+  cout<<"### saveAll channel distribution and fits "<<endl;
+  long int imap = 0;
+  for(auto itMap : channelMap){
+    std::shared_ptr<TCanvas> c1 = prepareCanvas("channelMap",observable);
+    c1->cd();
+    if(imap % 10 == 0){ // save one every ten
+      cout.flush();
+      cout<<"\r"<<"iChannel "<<100*double(imap)/(channelMap.size())<<" % ";
+      if(itMap.second->Integral() == 0 or itMap.second->GetFunction(Form("Gaus_%s",itMap.second->GetName())) == 0) continue;
+      itMap.second->SetLineColor(kBlack);
+      itMap.second->SetMarkerColor(kBlack);
+      itMap.second->SetMarkerStyle(20);
+      itMap.second->SetMarkerSize(1);
+      itMap.second->GetFunction(Form("Gaus_%s",itMap.second->GetName()))->SetLineColor(kRed);
+      itMap.second->GetFunction(Form("Gaus_%s",itMap.second->GetName()))->SetLineWidth(2);
+      itMap.second->Draw("same");
+      frame->GetYaxis()->SetRangeUser(itMap.second->GetFunction(Form("Gaus_%s",itMap.second->GetName()))->GetMinimum()*0.75,
+				      itMap.second->GetFunction(Form("Gaus_%s",itMap.second->GetName()))->GetMaximum()*1.25);
+      
+      c1->Write(Form("profile_detid_%s",to_string(itMap.first).c_str()));
+    }
+    imap++;    
+  }
+  std::cout<<std::endl;
+  outputFile->Close();  
+  return;
+  
+  
+} 
