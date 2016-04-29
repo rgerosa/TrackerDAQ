@@ -123,12 +123,14 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
 
 }
 
-
+// by dedault some fit results are store in a root file, a text dump: detid fitted delay is produced, as well as deid delay uncertainty
 void delayValidationPerModule(string inputDIR,    // take the input directory where all merged files are located
 			      string file1        = "nocorrection.root", // no correction file
 			      string postfix      = "merged", // sub string to be used to find merged files
 			      string observable   = "maxCharge",
-			      string outputDIR    = "prompt"){
+			      string outputDIR    = "prompt",
+			      bool   saveCanvas   =  false,
+			      bool   saveCorrectionTree = true){
 
   // prepare style and load macros
   setTDRStyle();
@@ -178,7 +180,9 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
   std::map<uint32_t,std::shared_ptr<TProfile> > channelMap;
   ChannnelPlots(clusters,readoutMap,delayCorrections,channelMap,observable);  
   // dumpt in a text file to be displayed on the tracker map and uncertainty
-  cout<<"#### Dump peak in a text file"<<endl;
+
+  // produce outputs
+  cout<<"### Dump peak in a text file"<<endl;
   ofstream dumpPeak((outputDIR+"/dumpBestDelay_"+observable+".txt").c_str());
   int nullPointers = 0;
   for(auto imap : channelMap){    
@@ -189,23 +193,107 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
   }
   dumpPeak.close();
 
-  cout<<"#### Dump peak error in a text file"<<endl;
+  std::cout<<"### Null pointers "<<100*float(nullPointers)/channelMap.size()<<" %s "<<endl;
+
+  cout<<"### Dump peak error in a text file"<<endl;
   ofstream dumpMean((outputDIR+"/dumpBestDelayError_"+observable+".txt").c_str());
   for(auto imap : channelMap){
     if(imap.second->GetFunction(Form("Gaus_%s",imap.second->GetName())))
       dumpMean<<imap.first<<"   "<<imap.second->GetFunction(Form("Gaus_%s",imap.second->GetName()))->GetParError(1)<<"\n";
   }  
   dumpMean.close();
+  
+  if(saveCanvas)
+    saveAll(channelMap,outputDIR,observable); // save all the plots into a single root files
 
-  std::cout<<"### Null pointers "<<100*float(nullPointers)/channelMap.size()<<" %s "<<endl;
+  std::shared_ptr<TFile> outputFile;
+  std::shared_ptr<TTree> outputTree;
 
-  saveAll(channelMap,outputDIR,observable); // save all the plots into a single root files
+  if(saveCorrectionTree){
  
+    std::cout<<"### Dumpt output tree for tkCommissioner "<<std::endl;
+    outputFile = std::shared_ptr<TFile>(new TFile((outputDIR+"/tree_delayCorrection.root").c_str(),"RECREATE"));
+    // branches definition for the output tree
+    readoutMap.at(0)->SetBranchStatus("*",kTRUE);
+    readoutMap.at(0)->SetBranchStatus("moduleName",kFALSE);
+    readoutMap.at(0)->SetBranchStatus("moduleId",kFALSE);
+    readoutMap.at(0)->SetBranchStatus("delay",kFALSE);
+    outputTree = std::shared_ptr<TTree>(readoutMap.at(0)->CopyTree(""));
+    outputTree->SetName("delayCorrection");
+    float    measuredDelay, measuredDelayUnc;
+    float    measuredMeanAmplitude, measuredMeanAmplitudeUnc;
+    float    measuredSigma, measuredSigmaUnc;
+    vector<float> amplitude;        
 
+    TBranch* bmeasuredDelay = outputTree->Branch("measuredDelay",&measuredDelay,"measuredDelay/F");
+    TBranch* bmeasuredDelayUnc = outputTree->Branch("measuredDelayUnc",&measuredDelayUnc,"measuredDelayUnc/F");
+    TBranch* bmeasuredMeanAmplitude = outputTree->Branch("measuredMeanAmplitude",&measuredMeanAmplitude,"measuredMeanAmplitude/F");
+    TBranch* bmeasuredMeanAmplitudeUnc = outputTree->Branch("measuredMeanAmplitudeUnc",&measuredMeanAmplitudeUnc,"measuredMeanAmplitudeUnc/F");
+    TBranch* bmeasuredSigma = outputTree->Branch("measuredSigma",&measuredSigma,"measuredSigma/F");
+    TBranch* bmeasuredSigmaUnc = outputTree->Branch("measuredSigmaUnc",&measuredSigmaUnc,"measuredSigmaUnc/F");
+    TBranch* bamplitude = outputTree->Branch("amplitude","std::vector<float>",&amplitude);
+    outputTree->BuildIndex("detid");
+
+    uint32_t detid;
+    outputTree->SetBranchAddress("detid",&detid);
+    long int notFoundChannels = 0;
+
+    cout<<"### Start the loop on the channel map "<<endl;    
+    for(int iChannel = 0; iChannel < outputTree->GetEntries(); iChannel++){
+      cout.flush();
+      if(iChannel % 100 == 0) cout<<"\r"<<"iChannel "<<100*double(iChannel)/(outputTree->GetEntries())<<" % ";
+      outputTree->GetEntry(iChannel);
+      measuredDelay = -99;
+      measuredDelayUnc = -99;
+      measuredMeanAmplitude = -99;
+      measuredMeanAmplitudeUnc = -99;
+      measuredSigma = -99;
+      measuredSigmaUnc = -99;
+      amplitude.clear();
+
+      if(channelMap[detid] == 0 or channelMap[detid] == NULL){
+	
+	notFoundChannels++;	
+	bmeasuredDelay->Fill();
+	bmeasuredDelayUnc->Fill();
+	bmeasuredMeanAmplitude->Fill();
+	bmeasuredMeanAmplitudeUnc->Fill();
+	bmeasuredSigma->Fill();
+	bmeasuredSigmaUnc->Fill();
+	bamplitude->Fill();
+	
+	continue;
+      }
+
+      for(int iBin = 0; iBin < channelMap[detid]->GetNbinsX(); iBin++){
+	  amplitude.push_back(channelMap[detid]->GetBinContent(iBin));
+      }
+
+      if(channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName())) != 0 and channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName())) != NULL){	
+	measuredDelay = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1);
+	measuredDelayUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(1);
+	measuredMeanAmplitude    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(0);
+	measuredMeanAmplitudeUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(0);
+	measuredSigma = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(2);
+	measuredSigmaUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(2);	
+      }
+
+      bmeasuredDelay->Fill();
+      bmeasuredDelayUnc->Fill();
+      bmeasuredMeanAmplitude->Fill();
+      bmeasuredMeanAmplitudeUnc->Fill();
+      bmeasuredSigma->Fill();
+      bmeasuredSigmaUnc->Fill();
+      bamplitude->Fill();      
+    }    
+    cout<<endl;
+    cout<<"### Write output tree for tkCommissioner: not found channels i.e. no clusters "<<100*float(notFoundChannels)/channelMap.size()<<" % "<<endl;
+    outputFile->cd();
+    outputTree->Write(outputTree->GetName(),TObject::kOverwrite);
+  }
+  cout<<"### Clear and Close "<<endl;  
   clusters.clear();
   readoutMap.clear();
   files.clear();
-
-
 }
 

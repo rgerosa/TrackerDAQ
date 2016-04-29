@@ -55,7 +55,8 @@ void fitChargeDistribution(string file0,
 			   float  delayMin = 0,
 			   float  delayMax = 10,
 			   bool   applyCorrection = true,
-			   bool   saveCanvas = false){
+			   bool   saveCanvas      = true,
+			   bool   plotCanvas      = false){
   
   system(("mkdir -p "+outputDirectory).c_str());
 
@@ -193,12 +194,13 @@ void fitChargeDistribution(string file0,
     canvas->cd();
     frame->Draw();
     t1->Draw("same");
-    canvas->Write(frame->GetName()); 
-
-    // plot to store in canvas
-    if(saveCanvas){
-      canvas->SaveAs((outputDirectory+"/"+string(charge.GetName())+".png").c_str(),"png");
-      canvas->SaveAs((outputDirectory+"/"+string(charge.GetName())+".pdf").c_str(),"pdf");
+    if(detId % savePlotEvery == 0 and saveCanvas){
+      canvas->Write(frame->GetName()); 
+      // plot to store in canvas
+      if(plotCanvas){
+	canvas->SaveAs((outputDirectory+"/"+string(charge.GetName())+".png").c_str(),"png");
+	canvas->SaveAs((outputDirectory+"/"+string(charge.GetName())+".pdf").c_str(),"pdf");
+      }
     }
     
     RooArgList funzParam = RooArgList(*totalPdf.getParameters(chargeDistribution));

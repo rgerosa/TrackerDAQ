@@ -6,6 +6,8 @@
 #include "CMS_lumi.h"
 #include "TFitResultPtr.h"
 
+static int savePlotEvery = 10;
+
 // basic profile for maxCharge                                                                                                                                                 
 TProfile* frame;
 TLegend*  legend;
@@ -126,14 +128,12 @@ std::shared_ptr<TCanvas> prepareCanvas(const string & name = "",const string & o
   float yMax = 0.;
   int   nBinsY = 0.;
 
-  float xMin = 0.; 
-  float xMax = 0.;
-  int   nBinsX = 0.;
+  vector<double> xBins;
 
   if(frame == 0 or frame == NULL){
     setLimitsAndBinning(observable,yMin,yMax,nBinsY);
-    setLimitsAndBinning("delay",xMin,xMax,nBinsX);
-    frame = new TProfile("frame","",nBinsX,xMin,xMax,yMin,yMax);
+    setLimitsAndBinning("delay",xBins);
+    frame = new TProfile("frame","",xBins.size()-1,&xBins[0],yMin,yMax);
   }
 
   frame->GetYaxis()->SetTitle("corrected signal (ADC)");
@@ -244,7 +244,7 @@ void saveAll(const std::map<uint32_t,std::shared_ptr<TProfile> > channelMap, con
   for(auto itMap : channelMap){
     std::shared_ptr<TCanvas> c1 = prepareCanvas("channelMap",observable);
     c1->cd();
-    if(imap % 10 == 0){ // save one every ten
+    if(imap % savePlotEvery == 0){ // save one every ten
       cout.flush();
       cout<<"\r"<<"iChannel "<<100*double(imap)/(channelMap.size())<<" % ";
       if(itMap.second->Integral() == 0 or itMap.second->GetFunction(Form("Gaus_%s",itMap.second->GetName())) == 0) continue;
