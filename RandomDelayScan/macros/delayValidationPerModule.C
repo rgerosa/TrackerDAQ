@@ -16,13 +16,26 @@
 // parametrize profile with a gaussian shape
 static bool isGaussian = true;
 // reduce the number of events by
-static int  reductionFactor = 100;
+static int  reductionFactor = 1;
+// min number of filled bins
+static int minFilledBin = 11;
+// max allowed delay
+static float peakBoundary = 10.8;
+// min amplitude
+static float amplitudeMin = 40.;
+// min signficance delay/sigma_delay
+static float significance = 2;
+// min delay to apply significance cut
+static float minDelayForSignificance = 3;
+// max sigma allowed
+static float maxSigma = 20;
 
 /// function that runs on the evnet and produce profiles for layers
 void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree, 
 		   const std::vector<std::shared_ptr<TTree> > & map,
 		   const std::shared_ptr<TTree>  & corrections,
 		   std::map<uint32_t,std::shared_ptr<TProfile> > & channelMap,
+		   std::map<uint32_t,int > & fitStatus,
 		   const string & observable) {
 
   std::cout<<"###############################################################"<<std::endl;
@@ -107,6 +120,7 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
       continue;
     }
     TFitResultPtr result = fitProfile(iprof.second,isGaussian,"Q");
+    fitStatus[iprof.first] = result->Status()+result->CovMatrixStatus() ;
     if(result->CovMatrixStatus() != 3 or result->Status() != 0){
       badFits++;
     }
@@ -178,7 +192,8 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
 
   //map with key the detId number, one profile associated to it
   std::map<uint32_t,std::shared_ptr<TProfile> > channelMap;
-  ChannnelPlots(clusters,readoutMap,delayCorrections,channelMap,observable);  
+  std::map<uint32_t,int > fitStatus;
+  ChannnelPlots(clusters,readoutMap,delayCorrections,channelMap,fitStatus,observable);  
   // dumpt in a text file to be displayed on the tracker map and uncertainty
 
   // produce outputs
@@ -187,7 +202,7 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
   int nullPointers = 0;
   for(auto imap : channelMap){    
     if(imap.second->GetFunction(Form("Gaus_%s",imap.second->GetName())))
-      dumpPeak<<imap.first<<"   "<<imap.second->GetFunction(Form("Gaus_%s",imap.second->GetName()))->GetMaximumX(-10,10)<<"\n";
+      dumpPeak<<imap.first<<"   "<<imap.second->GetFunction(Form("Gaus_%s",imap.second->GetName()))->GetParameter(1)<<"\n";
     else
       nullPointers++;
   }
@@ -206,6 +221,8 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
   if(saveCanvas)
     saveAll(channelMap,outputDIR,observable); // save all the plots into a single root files
 
+
+  //// outptut tree with analysis result
   std::shared_ptr<TFile> outputFile;
   std::shared_ptr<TTree> outputTree;
 
@@ -213,6 +230,7 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
  
     std::cout<<"### Dumpt output tree for tkCommissioner "<<std::endl;
     outputFile = std::shared_ptr<TFile>(new TFile((outputDIR+"/tree_delayCorrection.root").c_str(),"RECREATE"));
+
     // branches definition for the output tree
     readoutMap.at(0)->SetBranchStatus("*",kTRUE);
     readoutMap.at(0)->SetBranchStatus("moduleName",kFALSE);
@@ -220,40 +238,87 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
     readoutMap.at(0)->SetBranchStatus("delay",kFALSE);
     outputTree = std::shared_ptr<TTree>(readoutMap.at(0)->CopyTree(""));
     outputTree->SetName("delayCorrection");
+    // set branch
     float    measuredDelay, measuredDelayUnc;
     float    measuredMeanAmplitude, measuredMeanAmplitudeUnc;
     float    measuredSigma, measuredSigmaUnc;
+    float    delayCorr;
+    int      fitRejected;
+    int      nFilledBinRejected;
+    int      sigmaRejected;
+    int      amplitudeRejected;
+    int      significanceRejected;
+    int      notFound;
+    int      peakOutBoundaryRejected;
     vector<float> amplitude;        
 
-    TBranch* bmeasuredDelay = outputTree->Branch("measuredDelay",&measuredDelay,"measuredDelay/F");
+    outputTree->SetBranchStatus("*",kTRUE);
+    outputTree->GetBranch("detid")->SetName("Detid");
+    outputTree->GetLeaf("detid")->SetName("Detid");
+
+    TBranch* bmeasuredDelay    = outputTree->Branch("measuredDelay",&measuredDelay,"measuredDelay/F");
     TBranch* bmeasuredDelayUnc = outputTree->Branch("measuredDelayUnc",&measuredDelayUnc,"measuredDelayUnc/F");
-    TBranch* bmeasuredMeanAmplitude = outputTree->Branch("measuredMeanAmplitude",&measuredMeanAmplitude,"measuredMeanAmplitude/F");
+    TBranch* bmeasuredMeanAmplitude    = outputTree->Branch("measuredMeanAmplitude",&measuredMeanAmplitude,"measuredMeanAmplitude/F");
     TBranch* bmeasuredMeanAmplitudeUnc = outputTree->Branch("measuredMeanAmplitudeUnc",&measuredMeanAmplitudeUnc,"measuredMeanAmplitudeUnc/F");
-    TBranch* bmeasuredSigma = outputTree->Branch("measuredSigma",&measuredSigma,"measuredSigma/F");
+    TBranch* bmeasuredSigma    = outputTree->Branch("measuredSigma",&measuredSigma,"measuredSigma/F");
     TBranch* bmeasuredSigmaUnc = outputTree->Branch("measuredSigmaUnc",&measuredSigmaUnc,"measuredSigmaUnc/F");
-    TBranch* bamplitude = outputTree->Branch("amplitude","std::vector<float>",&amplitude);
-    outputTree->BuildIndex("detid");
+    TBranch* bamplitude        = outputTree->Branch("amplitude","std::vector<float>",&amplitude);
+    TBranch* bdelayCorr        = outputTree->Branch("delayCorr",&delayCorr,"delayCorr/F");
+
+    TBranch* bnotFound             = outputTree->Branch("notFound",&notFound,"notFound/I");
+    TBranch* bsignificanceRejected = outputTree->Branch("significanceRejected",&significanceRejected,"significanceRejected/I");
+    TBranch* bamplitudeRejected    = outputTree->Branch("amplitudeRejected",&amplitudeRejected,"amplitudeRejected/I");
+    TBranch* bsigmaRejected        = outputTree->Branch("sigmaRejected",&sigmaRejected,"sigmaRejected/I");
+    TBranch* bnFilledBinRejected   = outputTree->Branch("nFilledBinRejected",&nFilledBinRejected,"nFilledBinRejected/I");
+    TBranch* bpeakOutBoundaryRejected   = outputTree->Branch("peakOutBoundaryRejected",&peakOutBoundaryRejected,"peakOutBoundaryRejected/I");
+    TBranch* bfitRejected          = outputTree->Branch("fitRejected",&fitRejected,"fitRejected/I");
 
     uint32_t detid;
-    outputTree->SetBranchAddress("detid",&detid);
+    outputTree->SetBranchAddress("Detid",&detid);
     long int notFoundChannels = 0;
-
+    
     cout<<"### Start the loop on the channel map "<<endl;    
     for(int iChannel = 0; iChannel < outputTree->GetEntries(); iChannel++){
       cout.flush();
       if(iChannel % 100 == 0) cout<<"\r"<<"iChannel "<<100*double(iChannel)/(outputTree->GetEntries())<<" % ";
       outputTree->GetEntry(iChannel);
-      measuredDelay = -99;
-      measuredDelayUnc = -99;
-      measuredMeanAmplitude = -99;
-      measuredMeanAmplitudeUnc = -99;
-      measuredSigma = -99;
-      measuredSigmaUnc = -99;
-      amplitude.clear();
 
-      if(channelMap[detid] == 0 or channelMap[detid] == NULL){
-	
+      measuredDelay    = 0.;
+      measuredDelayUnc = 0.;
+      measuredMeanAmplitude    = 0.;
+      measuredMeanAmplitudeUnc = 0.;
+      measuredSigma    = 0.;
+      measuredSigmaUnc = 0.;
+      delayCorr        = 0.;
+      notFound             = 0;
+      significanceRejected = 0;
+      amplitudeRejected    = 0;
+      sigmaRejected        = 0;
+      nFilledBinRejected   = 0;
+      fitRejected          = 0;
+      peakOutBoundaryRejected = 0;
+      amplitude.clear();
+      
+      // not found detid --> i.e. no data there --> can be masked
+      if(channelMap[detid] == 0 or channelMap[detid] == NULL or channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName())) == 0 or channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName())) == NULL){
+	notFound = 1;       
 	notFoundChannels++;	
+      }
+
+      else{
+	// fill the amplitude branch
+	for(int iBin = 0; iBin < channelMap[detid]->GetNbinsX(); iBin++){
+	  amplitude.push_back(channelMap[detid]->GetBinContent(iBin));
+	}
+	
+            
+	measuredDelay    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1);
+	measuredDelayUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(1);
+	measuredMeanAmplitude    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(0);
+	measuredMeanAmplitudeUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(0);
+	measuredSigma    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(2);
+	measuredSigmaUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(2);	
+
 	bmeasuredDelay->Fill();
 	bmeasuredDelayUnc->Fill();
 	bmeasuredMeanAmplitude->Fill();
@@ -261,34 +326,124 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
 	bmeasuredSigma->Fill();
 	bmeasuredSigmaUnc->Fill();
 	bamplitude->Fill();
+      
+	/// apply selections for good fit --> check number of filled bins
+	int nFiledBins = getFilledBins(channelMap[detid]);
+	if(nFiledBins < minFilledBin){	
+	  nFilledBinRejected = 1;
+
+	//store it in the output canvas file
+	  if(not outputFile->GetDirectory("binEntries"))
+	    outputFile->mkdir("binEntries");
+	  outputFile->cd("binEntries");
+	  if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
+	    std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	    plotAll(c1b,channelMap[detid]);
+	    c1b->Write();
+	  }
+	  outputFile->cd();	
+	}
+
+	// fit status: 0 for the fit, 3 for the covariance matrix
+	if(fitStatus[detid] != 3){	  
+	  fitRejected = 1;
+	  //store it in the output canvas file
+	  if(not outputFile->GetDirectory("fitStatus"))
+	    outputFile->mkdir("fitStatus");
+	  outputFile->cd("fitStatus");
+	  if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
+	    std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	    plotAll(c1b,channelMap[detid]);
+	    c1b->Write();
+	  }
+	  outputFile->cd();	
+	}
 	
-	continue;
+	// mean value outside boundary
+	if(fabs(channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1)) > peakBoundary){
+	
+	  peakOutBoundaryRejected = 1;
+
+	  //store it in the output canvas file
+	  if(not outputFile->GetDirectory("peakOutRange"))
+	    outputFile->mkdir("peakOutRange");
+	  outputFile->cd("peakOutRange");
+	  if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
+	    std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	    plotAll(c1b,channelMap[detid]);
+	    c1b->Write();
+	  }
+	  outputFile->cd();	
+	} 
+	
+	// amplitude cut
+	if(fabs(channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(0)) < amplitudeMin){
+	  
+	  amplitudeRejected = 1;
+
+	  //store it in the output canvas file
+	  if(not outputFile->GetDirectory("smallAmplitude"))
+	    outputFile->mkdir("smallAmplitude");
+	  outputFile->cd("smallAmplitude");
+	  if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
+	    std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	    plotAll(c1b,channelMap[detid]);
+	    c1b->Write();
+	  }
+	  outputFile->cd();	
+	} 
+
+	// amplitude cut
+	if(fabs(channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1))/fabs(channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(1)) < significance and fabs(channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1)) > minDelayForSignificance){
+	
+	  significanceRejected = 1;
+
+	  //store it in the output canvas file
+	  if(not outputFile->GetDirectory("nonSignificantLargeShift"))
+	    outputFile->mkdir("nonSignificantLargeShift");
+	  outputFile->cd("nonSignificantLargeShift");
+	  if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
+	    std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	    plotAll(c1b,channelMap[detid]);
+	    c1b->Write();
+	  }
+	  outputFile->cd();	
+	} 
+
+	// sigma cut
+	if(channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(2) > maxSigma){
+	  
+	  sigmaRejected = 1;
+	  //store it in the output canvas file                                                                                                                               
+	  if(not outputFile->GetDirectory("largeGaussSigma"))
+	    outputFile->mkdir("largeGaussSigma");
+	  outputFile->cd("largeGaussSigma");
+	  if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
+	    std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	    plotAll(c1b,channelMap[detid]);
+	    c1b->Write();
+	  }
+	  outputFile->cd();
+	}
+
+	if(not notFound and not significanceRejected and not amplitudeRejected and not sigmaRejected and not nFilledBinRejected and not fitRejected and not peakOutBoundaryRejected)
+	  
+	  delayCorr = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1);
       }
 
-      for(int iBin = 0; iBin < channelMap[detid]->GetNbinsX(); iBin++){
-	  amplitude.push_back(channelMap[detid]->GetBinContent(iBin));
-      }
-
-      if(channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName())) != 0 and channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName())) != NULL){	
-	measuredDelay = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1);
-	measuredDelayUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(1);
-	measuredMeanAmplitude    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(0);
-	measuredMeanAmplitudeUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(0);
-	measuredSigma = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(2);
-	measuredSigmaUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(2);	
-      }
-
-      bmeasuredDelay->Fill();
-      bmeasuredDelayUnc->Fill();
-      bmeasuredMeanAmplitude->Fill();
-      bmeasuredMeanAmplitudeUnc->Fill();
-      bmeasuredSigma->Fill();
-      bmeasuredSigmaUnc->Fill();
-      bamplitude->Fill();      
+      bnotFound->Fill();
+      bsignificanceRejected->Fill();
+      bamplitudeRejected->Fill();
+      bsigmaRejected->Fill();
+      bnFilledBinRejected->Fill();
+      bfitRejected->Fill();      
+      bdelayCorr->Fill();
+      bpeakOutBoundaryRejected->Fill();
     }    
     cout<<endl;
-    cout<<"### Write output tree for tkCommissioner: not found channels i.e. no clusters "<<100*float(notFoundChannels)/channelMap.size()<<" % "<<endl;
+    cout<<"### Write output tree for tkCommissioner: not found channels i.e. no clusters "<<100*float(notFoundChannels)/outputTree->GetEntries()<<" % "<<endl;    
     outputFile->cd();
+    outputTree->BuildIndex("Detid");
     outputTree->Write(outputTree->GetName(),TObject::kOverwrite);
   }
   cout<<"### Clear and Close "<<endl;  

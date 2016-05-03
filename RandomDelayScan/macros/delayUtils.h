@@ -46,6 +46,13 @@ void setLimitsAndBinning(const string & observable, vector<double> & limits){
   return;
 }
 
+int getFilledBins(const std::shared_ptr<TProfile> & prof){
+  int nfilled = 0;
+  for(int iBin = 1; iBin <= prof->GetNbinsX(); iBin++){
+    if(prof->GetBinContent(iBin) != 0) nfilled++;
+  }
+  return nfilled;
+}
 
 // struct to handle ring definition for the different tracker partitions
 class trackerRing{
@@ -114,7 +121,7 @@ TFitResultPtr fitProfile(const std::shared_ptr<TProfile> & prof, bool gaus = fal
   gROOT->SetBatch(1);
   TFitResultPtr result = prof->Fit(pulse.get(),(options+"S").c_str());
   if(verbosity)
-    std::cout << "Profile Name "<<prof->GetName()<<" "<<"Maximum at " << pulse->GetMaximumX(-10,10) << std::endl;
+    std::cout << "Profile Name "<<prof->GetName()<<" "<<"Maximum at " << pulse->GetParameter(1) << std::endl;
   return result;
 }
 
@@ -146,6 +153,22 @@ std::shared_ptr<TCanvas> prepareCanvas(const string & name = "",const string & o
   CMS_lumi(c.get(),"");
   return c;
 }
+
+// plot all the profiles on a canvas
+void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::shared_ptr<TProfile>  & curves){
+
+  canvas->cd();
+  curves->SetLineColor(kBlack);
+  curves->SetMarkerColor(kBlack);
+  curves->SetMarkerStyle(20);
+  curves->SetMarkerSize(1);
+  curves->GetFunction(Form("Gaus_%s",curves->GetName()))->SetLineColor(kRed);
+  curves->GetFunction(Form("Gaus_%s",curves->GetName()))->SetLineWidth(2);
+  curves->Draw("same");
+  frame->GetYaxis()->SetRangeUser(curves->GetFunction(Form("Gaus_%s",curves->GetName()))->GetMinimum()*0.75,curves->GetFunction(Form("Gaus_%s",curves->GetName()))->GetMaximum()*1.25);
+  return;
+}
+
 
 // plot all the profiles on a canvas
 void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TProfile> > & curves){
@@ -200,7 +223,7 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   int i = 0;
   for(std::vector<std::shared_ptr<TProfile> >::const_iterator it = curves.begin(); it != curves.end(); ++it,++i) {
     if((*it)->GetListOfFunctions()->At(0)) {
-      graph->SetBinContent(i+1,((TF1*)(*it)->GetListOfFunctions()->At(0))->GetMaximumX());
+      graph->SetBinContent(i+1,((TF1*)(*it)->GetListOfFunctions()->At(0))->GetParameter(1));
       graph->SetBinError(i+1,((TF1*)(*it)->GetListOfFunctions()->At(0))->GetParError(1) );
     }
   }
