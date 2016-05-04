@@ -90,3 +90,12 @@ The code produces a set of root files with canvases for the different plots: pro
     delayValidationPerModule(<input directory where all the merged files for different runs are located>,<no correction file stored in ../data/nocorrection.root>,<postfix: substring to be find to be sure to run on the merged files>, <observable name (branch name)>, <outputDIR: name and path of the output directory>,<saveCanvas: store some gaussian fits of chraged TProfile vs delay>, <saveCorrectionTree: to save the delay per channel in a TTree format. Can be analyzed then through the tkCommissioner>
 
 Run the delay analysis over a set of different runs with different random delay configuration (fine time calibration per module).
+
+### Delay correction per module
+
+    cd TrackerDAQAnalysis/RandomDelayScan/macros;
+    root -l;
+    .L delayCorrectionPerModule.C;
+    delayCorrectionPerModule(<input file from delayValidationPerModule.C>,<output directory>,<outout root file name>)
+
+The code produces a lighter output file with a tree called again delayCorrection. It contains three branches: Detid, fedCh and te correction in units of 25/24ns, to be propagated to the DB.
