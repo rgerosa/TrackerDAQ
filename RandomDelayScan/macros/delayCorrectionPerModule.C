@@ -36,6 +36,9 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   outputTree->Branch("fedCh",&fedCh,"fedCh/I");
   outputTree->Branch("delayCorr",&delayCorr,"delayCorr/F");
 
+  std::map<std::string,std::string> rawDelayMap;
+  std::map<std::string,std::string> delayMap;
+
   std::cout<<"### Start loop "<<std::endl;
   // start loop on the input tree
   while(reader.Next()){
@@ -43,9 +46,23 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
     fedCh = *fedCh_i;
     delayCorr = std::round(*delayCorr_i*24./25.)*25/24;// delay in unitis of 24/25    
     outputTree->Fill();
+    rawDelayMap[to_string(Detid)] = to_string(*delayCorr_i);
+    delayMap[to_string(Detid)]    = to_string(delayCorr);
   }
+  std::cout<<"### Loop finished "<<std::endl;  
+  std::cout<<"### Make output text file"<<std::endl;
 
-  std::cout<<"### Loop finished "<<std::endl;
+  ofstream rawDelayFile ((outputDIR+"/rawDelayCorrection.txt").c_str());
+  for(auto imap : rawDelayMap){
+    rawDelayFile << imap.first << "   "<<imap.second<<"\n";
+  }
+  rawDelayFile.close();
+
+  ofstream delayFile ((outputDIR+"/delayCorrection.txt").c_str());
+  for(auto imap : delayMap){
+    delayFile << imap.first << "   "<<imap.second<<"\n";
+  }
+  delayFile.close();
 
   // write output
   outputFile->cd();
