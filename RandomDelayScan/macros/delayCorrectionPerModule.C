@@ -24,6 +24,7 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   TTreeReaderValue<uint32_t> Detid_i    (reader,"Detid");
   TTreeReaderValue<uint16_t> fedCh_i    (reader,"fedCh");
   TTreeReaderValue<float>    delayCorr_i (reader,"delayCorr");
+  TTreeReaderValue<float>    measuredDelay_i (reader,"measuredDelay");
 
   // output file and output tree structure
   std::shared_ptr<TFile> outputFile (new TFile((outputDIR+"/"+outputName+".root").c_str(),"RECREATE"));
@@ -49,6 +50,7 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
     rawDelayMap[to_string(Detid)] = to_string(*delayCorr_i);
     delayMap[to_string(Detid)]    = to_string(delayCorr);
   }
+
   std::cout<<"### Loop finished "<<std::endl;  
   std::cout<<"### Make output text file"<<std::endl;
 

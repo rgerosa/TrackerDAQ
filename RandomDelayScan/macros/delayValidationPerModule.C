@@ -263,8 +263,6 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
     TBranch* bmeasuredSigma    = outputTree->Branch("measuredSigma",&measuredSigma,"measuredSigma/F");
     TBranch* bmeasuredSigmaUnc = outputTree->Branch("measuredSigmaUnc",&measuredSigmaUnc,"measuredSigmaUnc/F");
     TBranch* bamplitude        = outputTree->Branch("amplitude","std::vector<float>",&amplitude);
-    TBranch* bdelayCorr        = outputTree->Branch("delayCorr",&delayCorr,"delayCorr/F");
-
     TBranch* bnotFound             = outputTree->Branch("notFound",&notFound,"notFound/I");
     TBranch* bsignificanceRejected = outputTree->Branch("significanceRejected",&significanceRejected,"significanceRejected/I");
     TBranch* bamplitudeRejected    = outputTree->Branch("amplitudeRejected",&amplitudeRejected,"amplitudeRejected/I");
@@ -272,6 +270,8 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
     TBranch* bnFilledBinRejected   = outputTree->Branch("nFilledBinRejected",&nFilledBinRejected,"nFilledBinRejected/I");
     TBranch* bpeakOutBoundaryRejected   = outputTree->Branch("peakOutBoundaryRejected",&peakOutBoundaryRejected,"peakOutBoundaryRejected/I");
     TBranch* bfitRejected          = outputTree->Branch("fitRejected",&fitRejected,"fitRejected/I");
+    TBranch* bdelayCorr        = outputTree->Branch("delayCorr",&delayCorr,"delayCorr/F");
+
 
     uint32_t detid;
     outputTree->SetBranchAddress("Detid",&detid);
@@ -311,7 +311,6 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
 	  amplitude.push_back(channelMap[detid]->GetBinContent(iBin));
 	}
 	
-            
 	measuredDelay    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1);
 	measuredDelayUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(1);
 	measuredMeanAmplitude    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(0);
@@ -319,14 +318,6 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
 	measuredSigma    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(2);
 	measuredSigmaUnc = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParError(2);	
 
-	bmeasuredDelay->Fill();
-	bmeasuredDelayUnc->Fill();
-	bmeasuredMeanAmplitude->Fill();
-	bmeasuredMeanAmplitudeUnc->Fill();
-	bmeasuredSigma->Fill();
-	bmeasuredSigmaUnc->Fill();
-	bamplitude->Fill();
-      
 	/// apply selections for good fit --> check number of filled bins
 	int nFiledBins = getFilledBins(channelMap[detid]);
 	if(nFiledBins < minFilledBin){	
@@ -431,14 +422,21 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
 	  delayCorr = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1);
       }
 
+      bmeasuredDelay->Fill();
+      bmeasuredDelayUnc->Fill();
+      bmeasuredMeanAmplitude->Fill();
+      bmeasuredMeanAmplitudeUnc->Fill();
+      bmeasuredSigma->Fill();
+      bmeasuredSigmaUnc->Fill();
+      bamplitude->Fill();      
       bnotFound->Fill();
       bsignificanceRejected->Fill();
       bamplitudeRejected->Fill();
       bsigmaRejected->Fill();
       bnFilledBinRejected->Fill();
       bfitRejected->Fill();      
-      bdelayCorr->Fill();
       bpeakOutBoundaryRejected->Fill();
+      bdelayCorr->Fill();
     }    
     cout<<endl;
     cout<<"### Write output tree for tkCommissioner: not found channels i.e. no clusters "<<100*float(notFoundChannels)/outputTree->GetEntries()<<" % "<<endl;    
