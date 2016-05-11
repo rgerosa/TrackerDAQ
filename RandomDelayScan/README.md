@@ -99,3 +99,28 @@ Run the delay analysis over a set of different runs with different random delay 
     delayCorrectionPerModule(<input file from delayValidationPerModule.C>,<output directory>,<outout root file name>)
 
 The code produces a lighter output file with a tree called again delayCorrection. It contains three branches: Detid, fedCh and te correction in units of 25/24ns, to be propagated to the DB.
+
+#######################################################
+### Check delays with the Offile new tkCommissioner ###
+#######################################################
+
+Run the script inside the installation directory called INSTALL_QTROOT.sh to properly install QTROOT:
+
+    mkdir <working directory with ~3GB space>
+    cd <working directory with ~3GB space>
+    cp <>/TrackerDAQAnalysis/RandomDelayScan/installation/INSTALL_QTROOT.sh ./
+    sh INSTALL_QTROOT.sh
+
+It will take ~2 hour to complie QT package, than ROOT 5.34 and finally QTRoot
+
+Then copy the offline tkCommissioner folder and set the environment:
+
+     scp -r /afs/cern.ch/user/r/rgerosa/work/public/OfflineCommissioner ./
+     cp <>/TrackerDAQAnalysis/RandomDelayScan/installation/set_environment.sh ./
+     source set_environment.sh
+
+To run the final analysis:
+
+   newCommissioner <root file> <tree name>
+
+
