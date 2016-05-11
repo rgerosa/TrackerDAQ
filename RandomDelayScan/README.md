@@ -120,7 +120,7 @@ Then copy the offline tkCommissioner folder and set the environment:
      source set_environment.sh
 
 To run the final analysis:
-   
-   newCommissioner <root file> <tree name>
+
+    newCommissioner < root file > < tree name >
 
 
