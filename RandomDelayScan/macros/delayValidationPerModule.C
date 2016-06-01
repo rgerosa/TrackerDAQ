@@ -251,6 +251,7 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
     int      notFound;
     int      peakOutBoundaryRejected;
     vector<float> amplitude;        
+    vector<float> amplitudeUnc;        
 
     outputTree->SetBranchStatus("*",kTRUE);
     outputTree->GetBranch("detid")->SetName("Detid");
@@ -263,6 +264,7 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
     TBranch* bmeasuredSigma    = outputTree->Branch("measuredSigma",&measuredSigma,"measuredSigma/F");
     TBranch* bmeasuredSigmaUnc = outputTree->Branch("measuredSigmaUnc",&measuredSigmaUnc,"measuredSigmaUnc/F");
     TBranch* bamplitude        = outputTree->Branch("amplitude","std::vector<float>",&amplitude);
+    TBranch* bamplitudeUnc     = outputTree->Branch("amplitudeUnc","std::vector<float>",&amplitudeUnc);
     TBranch* bnotFound             = outputTree->Branch("notFound",&notFound,"notFound/I");
     TBranch* bsignificanceRejected = outputTree->Branch("significanceRejected",&significanceRejected,"significanceRejected/I");
     TBranch* bamplitudeRejected    = outputTree->Branch("amplitudeRejected",&amplitudeRejected,"amplitudeRejected/I");
@@ -298,6 +300,7 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
       fitRejected          = 0;
       peakOutBoundaryRejected = 0;
       amplitude.clear();
+      amplitudeUnc.clear();
       
       // not found detid --> i.e. no data there --> can be masked
       if(channelMap[detid] == 0 or channelMap[detid] == NULL or channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName())) == 0 or channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName())) == NULL){
@@ -309,6 +312,7 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
 	// fill the amplitude branch
 	for(int iBin = 0; iBin < channelMap[detid]->GetNbinsX(); iBin++){
 	  amplitude.push_back(channelMap[detid]->GetBinContent(iBin));
+	  amplitudeUnc.push_back(channelMap[detid]->GetBinError(iBin));
 	}
 	
 	measuredDelay    = channelMap[detid]->GetFunction(Form("Gaus_%s",channelMap[detid]->GetName()))->GetParameter(1);
@@ -429,6 +433,7 @@ void delayValidationPerModule(string inputDIR,    // take the input directory wh
       bmeasuredSigma->Fill();
       bmeasuredSigmaUnc->Fill();
       bamplitude->Fill();      
+      bamplitudeUnc->Fill();      
       bnotFound->Fill();
       bsignificanceRejected->Fill();
       bamplitudeRejected->Fill();

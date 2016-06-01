@@ -7,9 +7,14 @@
 
 #include "delayUtils.h"
 
+bool saveFits = false;
+
 // take as input the output root file produced by delayValidationPerModule (TTree with floating point correction for each detId).
 // It creates a new file with a TTree with only Detid, fedChannel, delay in step of 1.04 ns
 void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName){
+
+  setTDRStyle();
+  gROOT->SetBatch(kTRUE);
 
   // compute corrections
   std::cout<<"###############################"<<std::endl;
@@ -30,6 +35,8 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   TTreeReaderValue<float>    measuredMeanAmplitude_i (reader,"measuredMeanAmplitude");
   TTreeReaderValue<float>    measuredSigma_i (reader,"measuredSigma");
   TTreeReaderValue<float>    measuredDelay_i (reader,"measuredDelay");
+  TTreeReaderValue<vector<float> >  amplitude (reader,"amplitude");
+  TTreeReaderValue<vector<float> >  amplitudeUnc (reader,"amplitudeUnc");
 
   // output file and output tree structure
   std::shared_ptr<TFile> outputFile (new TFile((outputDIR+"/"+outputName+".root").c_str(),"RECREATE"));
@@ -51,8 +58,10 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   // start loop on the input tree
   vector<double> limits;
   setLimitsAndBinning("delay",limits);
-  TF1 fitfunc ("fitfunc","[0]*TMath::Gaus(x,[1],[2])",limits.front(),limits.back());
-
+  TF1  fitfunc ("fitfunc","[0]*TMath::Gaus(x,[1],[2])",limits.front(),limits.back());
+  TH1F profile ("profile","",limits.size()-1,&limits[0]);
+  TCanvas canvas ("canvas","",600,600);
+  canvas.cd();
   while(reader.Next()){
     Detid = *Detid_i;
     fedCh = *fedCh_i;
@@ -73,6 +82,22 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
       fitfunc.SetParameter(2,*measuredSigma_i);
       signalIncreaseVsRawDelayMap[to_string(Detid)] = to_string(fitfunc.Eval(*measuredDelay_i)/fitfunc.Eval(0));
       signalIncreaseVsDelayMap[to_string(Detid)] = to_string(fitfunc.Eval(delayCorr)/fitfunc.Eval(0));
+      if(saveFits){
+	for(int iBin = 1; iBin < profile.GetNbinsX(); iBin++){
+	  profile.SetBinContent(iBin,amplitude->at(iBin));
+	  profile.SetBinError(iBin,amplitudeUnc->at(iBin));
+	}
+	profile.GetXaxis()->SetTitle("delay [ns]");
+	profile.GetYaxis()->SetTitle("Amplitude [ADC]");	
+	profile.SetMarkerColor(kBlack);
+	profile.SetMarkerSize(1);
+	profile.SetMarkerStyle(20);
+	profile.Draw("PE");
+	fitfunc.SetLineColor(kRed);
+	fitfunc.SetLineWidth(2);
+	fitfunc.Draw("Lsame");
+	canvas.SaveAs((outputDIR+"/plot_detid_"+to_string(Detid)+".png").c_str(),"png");
+      }
     }
     else{
       cerr<<"Huston we have a problem in the input delay tree --> this should never happen "<<endl;
