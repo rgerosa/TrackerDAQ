@@ -104,7 +104,7 @@ The code produces a lighter output file with a tree called again delayCorrection
 ### Check delays with the Offile new tkCommissioner ###
 #######################################################
 
-Run the script inside the installation directory called INSTALL_QTROOT.sh to properly install QTROOT:
+Run the script inside the installation directory called INSTALL_QTROOT.sh to properly install QTROOT (please make sure that no cmsenv command run before, use the libraries installed with yum on your machine)
 
     mkdir <working directory with ~3GB space>
     cd <working directory with ~3GB space>
