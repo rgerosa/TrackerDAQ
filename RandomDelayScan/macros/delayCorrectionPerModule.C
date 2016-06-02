@@ -7,11 +7,9 @@
 
 #include "delayUtils.h"
 
-bool saveFits = false;
-
 // take as input the output root file produced by delayValidationPerModule (TTree with floating point correction for each detId).
 // It creates a new file with a TTree with only Detid, fedChannel, delay in step of 1.04 ns
-void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName){
+void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = "false", float delayCutForPlotting = 3.25){
 
   setTDRStyle();
   gROOT->SetBatch(kTRUE);
@@ -82,10 +80,12 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
       fitfunc.SetParameter(2,*measuredSigma_i);
       signalIncreaseVsRawDelayMap[to_string(Detid)] = to_string(fitfunc.Eval(*measuredDelay_i)/fitfunc.Eval(0));
       signalIncreaseVsDelayMap[to_string(Detid)] = to_string(fitfunc.Eval(delayCorr)/fitfunc.Eval(0));
-      if(saveFits){
+      if(saveFits and fabs(*delayCorr_i) > delayCutForPlotting){
 	for(int iBin = 1; iBin < profile.GetNbinsX(); iBin++){
+	  if(amplitude->at(iBin) == 0) continue;
 	  profile.SetBinContent(iBin,amplitude->at(iBin));
 	  profile.SetBinError(iBin,amplitudeUnc->at(iBin));
+	  //profile.SetBinError(iBin,fabs(gRandom->Gaus(0,0.005)));
 	}
 	profile.GetXaxis()->SetTitle("delay [ns]");
 	profile.GetYaxis()->SetTitle("Amplitude [ADC]");	
