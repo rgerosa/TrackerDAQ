@@ -9,7 +9,7 @@
 
 // take as input the output root file produced by delayValidationPerModule (TTree with floating point correction for each detId).
 // It creates a new file with a TTree with only Detid, fedChannel, delay in step of 1.04 ns
-void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = "false", float delayCutForPlotting = 3.25){
+void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = "false", float delayCutForPlotting = 4){
 
   setTDRStyle();
   gROOT->SetBatch(kTRUE);
@@ -28,6 +28,10 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   TTreeReader reader(inputTree.get());
   TTreeReaderValue<uint32_t> Detid_i    (reader,"Detid");
   TTreeReaderValue<uint16_t> fedCh_i    (reader,"fedCh");
+  TTreeReaderValue<uint16_t> fedId_i    (reader,"fedId");
+  TTreeReaderValue<uint16_t> fecRing_i  (reader,"fecRing");
+  TTreeReaderValue<uint16_t> ccuAdd_i    (reader,"ccuAdd");
+  TTreeReaderValue<uint16_t> ccuChan_i    (reader,"ccuChan");
   TTreeReaderValue<float>    delayCorr_i (reader,"delayCorr");
   // to reconstruct the Gaussian fit vs delay for each module
   TTreeReaderValue<float>    measuredMeanAmplitude_i (reader,"measuredMeanAmplitude");
@@ -51,6 +55,7 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   std::map<std::string,std::string> delayMap;
   std::map<std::string,std::string> signalIncreaseVsRawDelayMap;
   std::map<std::string,std::string> signalIncreaseVsDelayMap;
+  std::map<std::string,std::string> largeDelayMap;
 
   std::cout<<"### Start loop "<<std::endl;
   // start loop on the input tree
@@ -80,23 +85,26 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
       fitfunc.SetParameter(2,*measuredSigma_i);
       signalIncreaseVsRawDelayMap[to_string(Detid)] = to_string(fitfunc.Eval(*measuredDelay_i)/fitfunc.Eval(0));
       signalIncreaseVsDelayMap[to_string(Detid)] = to_string(fitfunc.Eval(delayCorr)/fitfunc.Eval(0));
-      if(saveFits and fabs(*delayCorr_i) > delayCutForPlotting){
-	for(int iBin = 1; iBin < profile.GetNbinsX(); iBin++){
-	  if(amplitude->at(iBin) == 0) continue;
-	  profile.SetBinContent(iBin,amplitude->at(iBin));
-	  profile.SetBinError(iBin,amplitudeUnc->at(iBin));
-	  //profile.SetBinError(iBin,fabs(gRandom->Gaus(0,0.005)));
+      if(fabs(*delayCorr_i) > delayCutForPlotting){
+	largeDelayMap[to_string(Detid)] = to_string(*fedId_i)+" "+to_string(*fecRing_i)+" "+to_string(*ccuAdd_i)+" "+to_string(*ccuChan_i);
+	profile.Reset();
+	if(saveFits){
+	  for(int iBin = 1; iBin < profile.GetNbinsX(); iBin++){
+	    if(amplitude->at(iBin) == 0) continue;
+	    profile.SetBinContent(iBin,amplitude->at(iBin));
+	    profile.SetBinError(iBin,amplitudeUnc->at(iBin));
+	  }
+	  profile.GetXaxis()->SetTitle("delay [ns]");
+	  profile.GetYaxis()->SetTitle("Amplitude [ADC]");	
+	  profile.SetMarkerColor(kBlack);
+	  profile.SetMarkerSize(1);
+	  profile.SetMarkerStyle(20);
+	  profile.Draw("PE");
+	  fitfunc.SetLineColor(kRed);
+	  fitfunc.SetLineWidth(2);
+	  fitfunc.Draw("Lsame");
+	  canvas.SaveAs((outputDIR+"/plot_detid_"+to_string(Detid)+".png").c_str(),"png");
 	}
-	profile.GetXaxis()->SetTitle("delay [ns]");
-	profile.GetYaxis()->SetTitle("Amplitude [ADC]");	
-	profile.SetMarkerColor(kBlack);
-	profile.SetMarkerSize(1);
-	profile.SetMarkerStyle(20);
-	profile.Draw("PE");
-	fitfunc.SetLineColor(kRed);
-	fitfunc.SetLineWidth(2);
-	fitfunc.Draw("Lsame");
-	canvas.SaveAs((outputDIR+"/plot_detid_"+to_string(Detid)+".png").c_str(),"png");
       }
     }
     else{
@@ -128,7 +136,12 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   for(auto imap : signalIncreaseVsDelayMap)
     signalGainDelay << imap.first << "   "<<imap.second<<"\n";
   signalGainDelay.close();
-    
+
+  ofstream largeDelayChannel((outputDIR+"/largeDelayChannel.txt").c_str());
+  for(auto imap : largeDelayMap)
+    largeDelayChannel << imap.first << "   "<<imap.second<<"\n";
+  largeDelayChannel.close();
+
   // write output
   outputFile->cd();
   outputTree->BuildIndex("Detid");  
