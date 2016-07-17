@@ -9,7 +9,7 @@
 
 // take as input the output root file produced by delayValidationPerModule (TTree with floating point correction for each detId).
 // It creates a new file with a TTree with only Detid, fedChannel, delay in step of 1.04 ns
-void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = "false", float delayCutForPlotting = 4){
+void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = "false", float delayCutForPlotting = 2){
 
   setTDRStyle();
   gROOT->SetBatch(kTRUE);
@@ -95,7 +95,8 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
 	    profile.SetBinError(iBin,amplitudeUnc->at(iBin));
 	  }
 	  profile.GetXaxis()->SetTitle("delay [ns]");
-	  profile.GetYaxis()->SetTitle("Amplitude [ADC]");	
+	  //	  profile.GetYaxis()->SetTitle("Amplitude [ADC]");	
+	  profile.GetYaxis()->SetTitle("S/N");	
 	  profile.SetMarkerColor(kBlack);
 	  profile.SetMarkerSize(1);
 	  profile.SetMarkerStyle(20);
@@ -104,6 +105,7 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
 	  fitfunc.SetLineWidth(2);
 	  fitfunc.Draw("Lsame");
 	  canvas.SaveAs((outputDIR+"/plot_detid_"+to_string(Detid)+".png").c_str(),"png");
+	  canvas.SaveAs((outputDIR+"/plot_detid_"+to_string(Detid)+".pdf").c_str(),"pdf");
 	}
       }
     }

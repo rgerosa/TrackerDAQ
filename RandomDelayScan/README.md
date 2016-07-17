@@ -4,8 +4,8 @@
 
 ### CMSSW Setup:
 
-    cmsrel CMSSW_8_0_4 ;
-    cd CMSSW_8_0_4/src ;
+    cmsrel CMSSW_8_0_14 ;
+    cd CMSSW_8_0_14/src ;
     cmsenv;
     git-cms-init;
     git-cms-addpkg DPGAnalysis/SiStripTools/;

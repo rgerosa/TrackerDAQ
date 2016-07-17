@@ -16,13 +16,14 @@
 // parametrize profile with a gaussian shape
 static bool isGaussian = true;
 // reduce the number of events by
-static int  reductionFactor = 1;
+static int reductionFactor = 1;
 // min number of filled bins
 static int minFilledBin = 11;
 // max allowed delay
 static float peakBoundary = 10.8;
 // min amplitude
-static float amplitudeMin = 40.;
+//static float amplitudeMin = 40.; use for maxCharge
+static float amplitudeMin = 3.; 
 // min signficance delay/sigma_delay
 static float significance = 2;
 // min delay to apply significance cut
@@ -97,7 +98,7 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
       float value = 0;
       if(observable == "maxCharge")
 	value = obs*(clCorrectedSignalOverNoise)/(clSignalOverNoise);
-      else 
+      else 	
 	value = obs;
 
       channelMap[detid]->Fill(delay-correction,value);      
@@ -120,11 +121,13 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
       continue;
     }
     TFitResultPtr result = fitProfile(iprof.second,isGaussian,"Q");
-    fitStatus[iprof.first] = result->Status()+result->CovMatrixStatus() ;
-    if(result->CovMatrixStatus() != 3 or result->Status() != 0){
-      badFits++;
+    if(result.Get()){
+      fitStatus[iprof.first] = result->Status()+result->CovMatrixStatus() ;
+      if(result->CovMatrixStatus() != 3 or result->Status() != 0){
+	badFits++;
+      }
+      iFit++;
     }
-    iFit++;
   }
   
   std::cout<<std::endl;

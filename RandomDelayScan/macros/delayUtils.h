@@ -21,8 +21,8 @@ void setLimitsAndBinning(const string & observable, float & xMin, float & xMax, 
   }
   else if(observable == "clSignalOverNoise" or observable == "clCorrectedSignalOverNoise"){
     xMin = 0;
-    xMax = 80;
-    nBin = 40;
+    xMax = 200;
+    nBin = 100;
   }
   else if(observable == "delay"){
     xMin = -10*1.04;
@@ -98,8 +98,7 @@ void correctProfile(const std::shared_ptr<TProfile> & profile){
       profile->SetBinEntries(bin,0);
     }
     else
-      profile->SetBinContent(bin,profile->GetBinEntries(bin)*correctMeasurement(profile->GetBinContent(bin),3.)); // correct the measurement                            
-    
+      profile->SetBinContent(bin,profile->GetBinEntries(bin)*correctMeasurement(profile->GetBinContent(bin),3.)); // correct the measurement                                
   }
 
   return;
