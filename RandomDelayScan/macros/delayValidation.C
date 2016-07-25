@@ -10,9 +10,10 @@
 #include <TStyle.h>
 #include <TLatex.h>
 #include <TROOT.h>
-
 #include "delayUtils.h"
- 
+
+using namespace std; 
+
 // parametrize profile with a gaussian shape
 static bool isGaussian = true;
 // reduce the number of events by

@@ -6,6 +6,8 @@
 #include "TStyle.h"
 #include <iostream>
 
+using namespace std;
+
 void setTDRStyle (){
 
   gStyle->SetCanvasBorderMode(0);
@@ -41,7 +43,6 @@ void setTDRStyle (){
   gStyle->SetOptDate(0);
   
   gStyle->SetOptFile(0);
-  gStyle->SetOptStat(0);
   gStyle->SetStatColor(0); 
   gStyle->SetStatFont(42);
   gStyle->SetStatFontSize(0.04);
@@ -84,6 +85,8 @@ void setTDRStyle (){
   gStyle->SetOptLogx(0);
   gStyle->SetOptLogy(0);
   gStyle->SetOptLogz(0);
+
+  gStyle->SetOptStat(0);
 
   gStyle->SetPaperSize(20.,20.);
 

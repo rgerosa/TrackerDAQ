@@ -205,15 +205,13 @@ void fitChargeDistribution(string file0,
     
     RooArgList funzParam = RooArgList(*totalPdf.getParameters(chargeDistribution));
     std::auto_ptr<TF1> funz(totalPdf.asTF(charge,funzParam,charge));    // normalized to one
-    /*
     // in case compare peak height: define integration region with the histogram bin width
     charge.setRange("max",
 		    funz->GetMaximumX(xMin,xMax)-ihist.second->GetBinWidth(ihist.second->FindBin(funz->GetMaximumX(xMin,xMax)))/2,
 		    funz->GetMaximumX(xMin,xMax)+ihist.second->GetBinWidth(ihist.second->FindBin(funz->GetMaximumX(xMin,xMax)))/2);
     // define an integral in that range
     RooRealVar* iVal = (RooRealVar*) totalPdf.createIntegral(charge, RooFit::NormSet(charge), RooFit::Range("max"));
-    cout<<" hist max "<<ihist.second->GetMaximum()<<" funz "<<iVal->getVal()<<" "<<iVal->getVal()*normalization.getVal()<<endl;
-    */
+    //    cout<<" hist max "<<ihist.second->GetMaximum()<<" funz "<<iVal->getVal()<<" "<<iVal->getVal()*normalization.getVal()<<endl;    
     // multiply integral value time the normalization
     mapPeakCharge[to_string(ihist.first)] = to_string(funz->GetMaximumX(xMin,xMax));    
     mapMeanCharge[to_string(ihist.first)] = to_string(mean_landau.getVal());

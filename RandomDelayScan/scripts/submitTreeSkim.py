@@ -19,10 +19,10 @@ parser = OptionParser()
 parser.add_option('-b', action='store_true', dest='noX', default=False, help='no X11 windows')
 
 ## parse files                                                                                                                                                                 
-parser.add_option('--inputDIR',     action="store", type="string", dest="inputDIR",     default="",   help="input directory where files are contained")
-parser.add_option('--outputDIR',    action="store", type="string", dest="outputDIR",    default="",   help="output DIR")
+parser.add_option('--inputDIR',       action="store", type="string", dest="inputDIR",     default="",   help="input directory where files are contained")
+parser.add_option('--outputDIR',      action="store", type="string", dest="outputDIR",    default="",   help="output DIR")
 parser.add_option('--outputBaseName', action="store", type="string", dest="outputBaseName", default="",   help="output base name")
-parser.add_option('--isBOn',        action="store_true", dest="isBOn", help="rule the track/event/vertex/clusters selection in the analysis")
+parser.add_option('--isBOn',          action="store_true", dest="isBOn", help="rule the track/event/vertex/clusters selection in the analysis")
 ##  for submitting jobs in lxbatch                                                                                                                                              
 parser.add_option('--batchMode',    action="store_true",           dest="batchMode",                  help="batchMode")
 parser.add_option('--jobDIR',       action="store", type="string", dest="jobDIR",  default="",        help="directory for job")

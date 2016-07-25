@@ -63,16 +63,16 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
   string vertexSelection;
   string clusterSelection;
   if(isBOn){
-    eventSelection = "lowPixelProbabilityFraction[0]<0.4 && lowPixelProbabilityFraction[0]>-0.5 && nVertices>0 && ";
-    trackSelection = "p>1 && p<10 && quality>2 && pterr/pt<0.1 && pt>1 && dedx1<10 && quality>2 && dedx1<3.5 && ";
-    vertexSelection = "";
-    clusterSelection = "onTrack && angle>0 && maxCharge<254";
+    eventSelection   = "lowPixelProbabilityFraction[0] < 0.4 && lowPixelProbabilityFraction[0] >-0.5 && nVertices > 0 && ";
+    trackSelection   = "p > 1 && quality>2 && pterr/pt < 0.1 && pt>1 && dedx1 < 5 && ";
+    vertexSelection  = "";
+    clusterSelection = "onTrack && angle > 0 && maxCharge < 254";
   }
   else{
-    eventSelection = "nVertices>=0 && ";
-    trackSelection = "pt>= 0 && ";
-    vertexSelection = "";
-    clusterSelection = "onTrack && angle>0 && maxCharge<254";
+    eventSelection   = "nVertices>=0 && ";
+    trackSelection   = "pt>= 0 && ";
+    vertexSelection  = "";
+    clusterSelection = "onTrack && angle > 0 && maxCharge < 254";
   }
 
   cout<<"### eventSelection:   "<<eventSelection<<endl;
