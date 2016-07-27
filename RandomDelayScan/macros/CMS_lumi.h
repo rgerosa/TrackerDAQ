@@ -6,8 +6,6 @@
 #include "TStyle.h"
 #include <iostream>
 
-using namespace std;
-
 void setTDRStyle (){
 
   gStyle->SetCanvasBorderMode(0);
@@ -43,6 +41,7 @@ void setTDRStyle (){
   gStyle->SetOptDate(0);
   
   gStyle->SetOptFile(0);
+  gStyle->SetOptStat(0);
   gStyle->SetStatColor(0); 
   gStyle->SetStatFont(42);
   gStyle->SetStatFontSize(0.04);
@@ -86,13 +85,12 @@ void setTDRStyle (){
   gStyle->SetOptLogy(0);
   gStyle->SetOptLogz(0);
 
-  gStyle->SetOptStat(0);
-
   gStyle->SetPaperSize(20.,20.);
+  gStyle->SetPaintTextFormat(".2f");
 
 }
 
-void CMS_lumi(TPad* pad, string lumi, bool up = false, int reduceSize = false){
+void CMS_lumi(TPad* pad, string lumi, bool up = false, int reduceSize = false, float offset = 0){
 
   TLatex* latex2 = new TLatex();
   latex2->SetNDC();
@@ -102,16 +100,13 @@ void CMS_lumi(TPad* pad, string lumi, bool up = false, int reduceSize = false){
   if(reduceSize == 2)
     latex2->SetTextSize(0.60*pad->GetTopMargin());
   
-  if(lumi != "")
-    latex2->DrawLatex(0.9, 0.95,(lumi+" fb^{-1} (13 TeV)").c_str());
-  else
-    latex2->DrawLatex(0.9, 0.95,"(13 TeV)");
+  latex2->DrawLatex(0.94, 0.95,"(13 TeV)");
 
   if(up){
-    latex2->SetTextSize(0.70*pad->GetTopMargin());
+    latex2->SetTextSize(0.65*pad->GetTopMargin());
     latex2->SetTextFont(62);
     latex2->SetTextAlign(11);    
-    latex2->DrawLatex(0.15, 0.95, "CMS");
+    latex2->DrawLatex(0.15+offset, 0.95, "CMS");
   }
   else{
     latex2->SetTextSize(0.6*pad->GetTopMargin());
@@ -122,17 +117,17 @@ void CMS_lumi(TPad* pad, string lumi, bool up = false, int reduceSize = false){
 
     latex2->SetTextFont(62);
     latex2->SetTextAlign(11);    
-    latex2->DrawLatex(0.19, 0.85, "CMS");
+    latex2->DrawLatex(0.175+offset, 0.85, "CMS");
   }
 
   if(up){
-    latex2->SetTextSize(0.70*pad->GetTopMargin());
+    latex2->SetTextSize(0.65*pad->GetTopMargin());
     latex2->SetTextFont(52);
     latex2->SetTextAlign(11);
-    latex2->DrawLatex(0.24, 0.95, "Preliminary");
+    latex2->DrawLatex(0.25+offset, 0.95, "Preliminary");
   }
   else{
-    latex2->SetTextSize(0.5*pad->GetTopMargin());
+    latex2->SetTextSize(0.6*pad->GetTopMargin());
     if(reduceSize == 1)
       latex2->SetTextSize(0.45*pad->GetTopMargin());
     else if(reduceSize == 2)
@@ -140,11 +135,73 @@ void CMS_lumi(TPad* pad, string lumi, bool up = false, int reduceSize = false){
     latex2->SetTextFont(52);
     latex2->SetTextAlign(11);    
     if(reduceSize == 1)
-      latex2->DrawLatex(0.225, 0.85, "Preliminary");
+      latex2->DrawLatex(0.235+offset, 0.85, "Preliminary");
     else if(reduceSize == 2)
-      latex2->DrawLatex(0.24, 0.85, "Preliminary");
+      latex2->DrawLatex(0.24+offset, 0.85, "Preliminary");
     else
-      latex2->DrawLatex(0.28, 0.85, "Preliminary");
+      latex2->DrawLatex(0.28+offset, 0.85, "Preliminary");
   }
 }
 
+
+void changeInLatexName(string & variable){
+
+  if(variable == "met")
+    variable = "Recoil [GeV]";
+  else if(variable == "ht")
+    variable = "H_{T} [GeV]";
+  else if(variable == "mT")
+    variable = "m_{T} [GeV]";
+  else if(variable == "njet")
+    variable = "N_{jet}";
+  else if(variable == "nbjet")
+    variable = "N_{bjet}";
+  else if(variable == "dphiJJ")
+    variable = "#Delta#phi_{jj}";
+  else if(variable == "minDphiJJ")
+    variable = "min(#Delta#phi_{jj})";
+  else if(variable == "minDphiJ1J")
+    variable = "min(#Delta#phi_{j_{1}j})";
+  else if(variable == "mpruned")
+    variable = "m_{pruned} [GeV]";
+  else if(variable == "tau2tau1")
+    variable = "#tau_{2}/#tau_{1}";
+  else if(variable == "bosonPt")
+    variable = "p_{T}^{V} [GeV]";
+  else if(variable == "jetPt")
+    variable = "p_{T}^{jet} [GeV]";
+  else if(variable == "boostedJetPt")
+    variable = "p_{T}^{jet} [GeV]";
+
+}
+
+pair<string,string> observableName (string name, bool alongX = false){
+
+  stringstream name_tmp(name.c_str());
+  string segment;
+  vector<string> seglist;
+  while(getline(name_tmp, segment,'_')){
+    seglist.push_back(segment);
+  }
+
+  string variableX;
+  string variableY;
+
+  if(seglist.size() == 2){
+    variableX = seglist.back();
+    variableY = seglist.front();
+    changeInLatexName(variableX);
+    changeInLatexName(variableY);
+  }
+  else{
+    variableX = seglist.at(1);
+    variableY = seglist.front();
+    changeInLatexName(variableX);
+    changeInLatexName(variableY);
+  }
+
+  if(alongX)
+    return make_pair(variableX,variableY);
+  else
+    return make_pair(variableY,variableX);
+}

@@ -20,7 +20,7 @@ void setLimitsAndBinning(const string & observable, float & xMin, float & xMax, 
   if(observable == "maxCharge"){
     xMin = 10;
     xMax = 254;
-    nBin = 45;
+    nBin = 40;
   }
   else if(observable == "clSignalOverNoise" or observable == "clCorrectedSignalOverNoise"){
     xMin = 5;
@@ -497,7 +497,7 @@ Double_t langaufun(Double_t *x, Double_t *par) {
   Double_t mpshift  = -0.22278298;       // Landau maximum location
 
   // Control constants
-  Double_t np = 100.0;      // number of convolution steps
+  Double_t np = 200.0;      // number of convolution steps
   Double_t sc =   5.0;      // convolution extends to +-sc Gaussian sigmas
 
   // Variables

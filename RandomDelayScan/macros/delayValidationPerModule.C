@@ -50,6 +50,9 @@ static bool doFitOfClusterShape = true;
 // decide whether use histograms values or fitted ones
 static bool storeFitOfClusterShape = true;
 
+static std::vector< shared_ptr<TFile> > files;
+ 
+
 /// function that runs on the evnet and produce profiles for layers
 void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree, 
 		   const std::vector<std::shared_ptr<TTree> > & map,
@@ -133,6 +136,7 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
       channelMap[detid][delay-correction]->Fill(value);
     }
     std::cout<<std::endl;
+    files.at(iTree)->Close(); // to prevent high RAM occupancy
   }
   std::cout<<"Loop on events terminated"<<std::endl;  
 
@@ -215,8 +219,30 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
 	fitfunc->SetParLimits(0,parametersLow[2],parametersHigh[2]);
 	fitfunc->SetParLimits(0,parametersLow[3],parametersHigh[3]);
 
+	uint32_t subdetid    = int((iMap.first-0x10000000)/0x2000000);
+	uint32_t barrellayer = int((iMap.first%33554432)/0x4000);
+	uint32_t TIDlayer    = int((iMap.first%33554432)/0x800)%4;
+	uint32_t TECPlayer   = int((iMap.first%33554432)/0x4000)-32;
+	uint32_t TECMlayer   = int((iMap.first%33554432)/0x4000)-16;
+	
+	// define range for a better description of the peak
+	if(observable == "maxCharge"){	  
+	  if(subdetid == 3) // TIB
+	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-1.5*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+2.5*itHisto->second->GetRMS());
+	  if(subdetid == 4) // TID
+	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-1.5*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+2.5*itHisto->second->GetRMS());
+	  else if(subdetid == 5) //TOB
+	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-2.0*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+3.0*itHisto->second->GetRMS());
+	  else if(subdetid == 6 and (TECPlayer < 6 or TECMlayer < 6))
+	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-1.5*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+2.5*itHisto->second->GetRMS());
+	  else if(subdetid == 6 and (TECMlayer >= 6 or TECMlayer >= 6))
+	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-2.0*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+3.0*itHisto->second->GetRMS());
+	}
+	else
+	  fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-1.5*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+itHisto->second->GetRMS()*3.0);
+
 	// make fit and get parameters
-	TFitResultPtr fitResult = itHisto->second->Fit(fitfunc,"RBSQ");	
+	TFitResultPtr fitResult = itHisto->second->Fit(fitfunc,"RSQN");	
 	if(not fitResult.Get() or fitResult->Status() != 0 or fitResult->CovMatrixStatus() <= 1){ 
 	  iBadChannelFit++;	    
 	  channelMapMPV[iMap.first]->SetBinContent(channelMapMPV[iMap.first]->FindBin(itHisto->first),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin()));
@@ -597,8 +623,7 @@ void delayValidationPerModule(
   std::cout<<"### Build the input TTree Vector"<<std::endl;
   std::vector< shared_ptr<TTree> > clusters;
   std::vector< shared_ptr<TTree> > readoutMap;
-  std::vector< shared_ptr<TFile> > files;
-  for(auto ifile : fileList){
+ for(auto ifile : fileList){
     files.push_back(shared_ptr<TFile>(TFile::Open(ifile.c_str())));
     clusters.push_back(shared_ptr<TTree>((TTree*) files.back()->FindObjectAny("clusters")));
     readoutMap.push_back(shared_ptr<TTree>((TTree*) files.back()->FindObjectAny("readoutMap")));
