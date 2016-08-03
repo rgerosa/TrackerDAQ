@@ -236,7 +236,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::shared_ptr<TH1F
 
 
 // plot all the profiles on a canvas
-void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TProfile> > & curves){
+void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TProfile> > & curves, string  remove  = ""){
 
   canvas->cd();
   float yMin = 10000.;
@@ -258,7 +258,9 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
     (*it)->SetMarkerColor(icolor);
     (*it)->SetMarkerStyle(20);
     (*it)->SetMarkerSize(1);
-    legend->AddEntry((*it).get(),(*it)->GetName(),"EP");
+    TString legenEntry = Form("%s",(*it)->GetName());
+    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"");
+    legend->AddEntry((*it).get(),legenEntry,"EP");
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineColor(icolor);
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineWidth(2);
     (*it)->Draw("same");
@@ -276,7 +278,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
 }
 
 // plot all the profiles on a canvas
-void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TH1F> > & curves){
+void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TH1F> > & curves, string  remove  = ""){
 
   canvas->cd();
   float yMin = 10000.;
@@ -298,7 +300,9 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
     (*it)->SetMarkerColor(icolor);
     (*it)->SetMarkerStyle(20);
     (*it)->SetMarkerSize(1);
-    legend->AddEntry((*it).get(),(*it)->GetName(),"EP");
+    TString legenEntry = Form("%s",(*it)->GetName());
+    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"");
+    legend->AddEntry((*it).get(),legenEntry,"EP");
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineColor(icolor);
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineWidth(2);
     (*it)->Draw("same");
@@ -333,10 +337,11 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
     }
   }
 
-
   i=0;
   for(std::vector<std::shared_ptr<TProfile> >::const_iterator it = curves.begin(); it < curves.end(); ++it,++i){
-    graph->GetXaxis()->SetBinLabel(i+1,(*it)->GetName());
+    TString label = Form("%s",(*it)->GetName());
+    label.ReplaceAll("_"," ");
+    graph->GetXaxis()->SetBinLabel(i+1,label);
   }
   graph->GetYaxis()->SetTitle("delay (ns)");
   graph->GetXaxis()->LabelsOption("v");
@@ -381,7 +386,9 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
 
   i=0;
   for(std::vector<std::shared_ptr<TH1F> >::const_iterator it = curves.begin(); it < curves.end(); ++it,++i){
-    graph->GetXaxis()->SetBinLabel(i+1,(*it)->GetName());
+    TString label = Form("%s",(*it)->GetName());
+    label.ReplaceAll("_"," ");
+    graph->GetXaxis()->SetBinLabel(i+1,label);
   }
   graph->GetYaxis()->SetTitle("delay (ns)");
   graph->GetXaxis()->LabelsOption("v");

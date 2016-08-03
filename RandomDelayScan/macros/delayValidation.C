@@ -550,7 +550,7 @@ void delayValidation(string file0,
     allPartitions.insert(allPartitions.end(),TECPt.begin(),TECPt.end());
 
     std::shared_ptr<TCanvas> c1 = prepareCanvas("Partitions",observable);
-    plotAll(c1,allPartitions);
+    plotAll(c1,allPartitions,"ring1");
     c1->Print(Form("%s/Partitions.root",outputDIR.c_str()));
 
     TIB.clear();
