@@ -9,7 +9,7 @@
 
 // take as input the output root file produced by delayValidationPerModule (TTree with floating point correction for each detId).
 // It creates a new file with a TTree with only Detid, fedChannel, delay in step of 1.04 ns
-void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = "false", float delayCutForPlotting = 2){
+void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = "false", float delayCutForPlotting = 4, string observable = "maxCharge"){
 
   setTDRStyle();
   gROOT->SetBatch(kTRUE);
@@ -117,32 +117,32 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   std::cout<<"### Loop finished "<<std::endl;  
   std::cout<<"### Make output text file"<<std::endl;
 
-  ofstream rawDelayFile ((outputDIR+"/rawDelayCorrection.txt").c_str());
+  ofstream rawDelayFile ((outputDIR+"/rawDelayCorrection_"+observable+".txt").c_str());
   for(auto imap : rawDelayMap){
     rawDelayFile << imap.first << "   "<<imap.second<<"\n";
   }
   rawDelayFile.close();
 
-  ofstream delayFile ((outputDIR+"/delayCorrection.txt").c_str());
+  ofstream delayFile ((outputDIR+"/delayCorrection_"+observable+".txt").c_str());
   for(auto imap : delayMap){
     delayFile << imap.first << "   "<<imap.second<<"\n";
   }
   delayFile.close();
 
-  ofstream signalGainRawDelay ((outputDIR+"/signalGainRawDelay.txt").c_str());
+  ofstream signalGainRawDelay ((outputDIR+"/signalGainRawDelay_"+observable+".txt").c_str());
   for(auto imap : signalIncreaseVsRawDelayMap)
     signalGainRawDelay << imap.first << "   "<<imap.second<<"\n";
   signalGainRawDelay.close();
 
-  ofstream signalGainDelay ((outputDIR+"/signalGainDelay.txt").c_str());
-  for(auto imap : signalIncreaseVsDelayMap)
-    signalGainDelay << imap.first << "   "<<imap.second<<"\n";
-  signalGainDelay.close();
+  //  ofstream signalGainDelay ((outputDIR+"/signalGainDelay_"+observable+".txt").c_str());
+  //  for(auto imap : signalIncreaseVsDelayMap)
+  //    signalGainDelay << imap.first << "   "<<imap.second<<"\n";
+  //  signalGainDelay.close();
 
-  ofstream largeDelayChannel((outputDIR+"/largeDelayChannel.txt").c_str());
-  for(auto imap : largeDelayMap)
-    largeDelayChannel << imap.first << "   "<<imap.second<<"\n";
-  largeDelayChannel.close();
+  //  ofstream largeDelayChannel((outputDIR+"/largeDelayChannel"+observable+".txt").c_str());
+  //  for(auto imap : largeDelayMap)
+  //    largeDelayChannel << imap.first << "   "<<imap.second<<"\n";
+  //  largeDelayChannel.close();
 
   // write output
   outputFile->cd();
