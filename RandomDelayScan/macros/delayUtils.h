@@ -44,7 +44,7 @@ void setLimitsAndBinning(const string & observable, float & xMin, float & xMax, 
 void setLimitsAndBinning(const string & observable, vector<double> & limits){
 
   if(observable == "delay")
-    limits = {-10.94,-9.9,-8.86,-7.82,-6.78,-5.74,-4.70,-3.66,-2.62,-1.58,-0.54,0.54,1.58,2.62,3.66,4.70,5.74,6.78,7.82,8.86,9.9,10.94};
+    limits = {-10.9,-9.9,-8.8,-7.8,-6.7,-5.7,-4.7,-3.6,-2.6,-1.5,-0.5,0.5,1.5,2.6,3.6,4.7,5.7,6.7,7.8,8.8,9.9,10.9};
   
   return;
 }
@@ -259,7 +259,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
     (*it)->SetMarkerStyle(20);
     (*it)->SetMarkerSize(1);
     TString legenEntry = Form("%s",(*it)->GetName());
-    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"");
+    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"").ReplaceAll("mean","").ReplaceAll("mpv","");
     legend->AddEntry((*it).get(),legenEntry,"EP");
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineColor(icolor);
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineWidth(2);
@@ -276,6 +276,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
   return;
 
 }
+
 
 // plot all the profiles on a canvas
 void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TH1F> > & curves, string  remove  = ""){
@@ -301,7 +302,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
     (*it)->SetMarkerStyle(20);
     (*it)->SetMarkerSize(1);
     TString legenEntry = Form("%s",(*it)->GetName());
-    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"");
+    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"").ReplaceAll("mean","").ReplaceAll("mpv","");
     legend->AddEntry((*it).get(),legenEntry,"EP");
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineColor(icolor);
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineWidth(2);
@@ -310,6 +311,48 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
       yMax = (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMaximum();
     if((*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMinimum() < yMin)
       yMin = (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMinimum();
+    icolor++;
+  }
+  frame->GetYaxis()->SetRangeUser(yMin*0.75,yMax*1.50);
+  legend->Draw("same");
+
+  return;
+
+}
+
+// plot all the profiles on a canvas
+void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::map<uint32_t,std::shared_ptr<TH1F> > & curves, string  remove  = ""){
+  
+  canvas->cd();
+  float yMin = 10000.;
+  float yMax = -1.;
+  int   icolor = 1;
+
+  if(legend == 0 or legend == NULL)
+    legend = new TLegend(0.55,0.7,0.85,0.92);
+  else
+    legend->Clear();
+
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
+  legend->SetBorderSize(0);  
+
+  for(std::map<uint32_t,std::shared_ptr<TH1F> >::const_iterator it = curves.begin(); it != curves.end(); ++it) {
+    if((*it).second->Integral() == 0 or (*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName())) == 0) continue;
+    (*it).second->SetLineColor(icolor);
+    (*it).second->SetMarkerColor(icolor);
+    (*it).second->SetMarkerStyle(20);
+    (*it).second->SetMarkerSize(1);
+    TString legenEntry = Form("%s",(*it).second->GetName());
+    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"").ReplaceAll("mean","").ReplaceAll("mpv","");
+    legend->AddEntry((*it).second.get(),legenEntry,"EP");
+    (*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName()))->SetLineColor(icolor);
+    (*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName()))->SetLineWidth(2);
+    (*it).second->Draw("same");
+    if((*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName()))->GetMaximum() > yMax)
+      yMax = (*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName()))->GetMaximum();
+    if((*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName()))->GetMinimum() < yMin)
+      yMin = (*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName()))->GetMinimum();
     icolor++;
   }
   frame->GetYaxis()->SetRangeUser(yMin*0.75,yMax*1.50);
@@ -340,7 +383,7 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   i=0;
   for(std::vector<std::shared_ptr<TProfile> >::const_iterator it = curves.begin(); it < curves.end(); ++it,++i){
     TString label = Form("%s",(*it)->GetName());
-    label.ReplaceAll("_"," ");
+    label.ReplaceAll("_"," ").ReplaceAll("mean","").ReplaceAll("mpv","");
     graph->GetXaxis()->SetBinLabel(i+1,label);
   }
   graph->GetYaxis()->SetTitle("delay (ns)");
@@ -385,9 +428,9 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
 
 
   i=0;
-  for(std::vector<std::shared_ptr<TH1F> >::const_iterator it = curves.begin(); it < curves.end(); ++it,++i){
+  for(std::vector<std::shared_ptr<TH1F> >::const_iterator it = curves.begin(); it != curves.end(); ++it,++i){
     TString label = Form("%s",(*it)->GetName());
-    label.ReplaceAll("_"," ");
+    label.ReplaceAll("_"," ").ReplaceAll("mean","").ReplaceAll("mpv","");
     graph->GetXaxis()->SetBinLabel(i+1,label);
   }
   graph->GetYaxis()->SetTitle("delay (ns)");

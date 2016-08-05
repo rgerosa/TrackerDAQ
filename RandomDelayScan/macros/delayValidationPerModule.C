@@ -50,13 +50,13 @@ static bool doFitOfClusterShape = true;
 // decide whether use histograms values or fitted ones
 static bool storeFitOfClusterShape = true;
 
-static std::vector< shared_ptr<TFile> > files;
+static std::vector<TFile* > files;
  
 
 /// function that runs on the evnet and produce profiles for layers
-void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree, 
-		   const std::vector<std::shared_ptr<TTree> > & map,
-		   const std::shared_ptr<TTree>  & corrections,		   
+void ChannnelPlots(const std::vector<TTree* > & tree, 
+		   const std::vector<TTree* > & map,
+		   TTree* corrections,		   
 		   std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > channelMap,
 		   std::map<uint32_t,std::shared_ptr<TH1F> > & channelMapMean,
 		   std::map<uint32_t,std::shared_ptr<TH1F> > & channelMapMPV,
@@ -136,7 +136,8 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
       channelMap[detid][delay-correction]->Fill(value);
     }
     std::cout<<std::endl;
-    files.at(iTree)->Close(); // to prevent high RAM occupancy
+    map.at(iTree)->SetDirectory(0);    
+    files.at(iTree)->Close(); // to prevent high RAM occupancy    
   }
   std::cout<<"Loop on events terminated"<<std::endl;  
 
@@ -256,7 +257,7 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
 	  chi2   = fitResult->Chi2();
 	  ndf    = fitResult->Ndf();  
 	  
- 	  channelMapMPV[iMap.first]->SetBinContent(channelMapMPV[iMap.first]->FindBin(itHisto->first),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin()),fitfunc->GetMaximumX(yMin,yMax));
+ 	  channelMapMPV[iMap.first]->SetBinContent(channelMapMPV[iMap.first]->FindBin(itHisto->first),fitfunc->GetMaximumX(yMin,yMax));
 	  // as error use the error on Landau MPV as a proxy
 	  channelMapMPV[iMap.first]->SetBinError(channelMapMPV[iMap.first]->FindBin(itHisto->first),fit_parameters_error[1]);
 	  
@@ -359,22 +360,22 @@ void ChannnelPlots(const std::vector<std::shared_ptr<TTree> > & tree,
 }
 
 
-void saveOutputTree(const vector<shared_ptr<TTree> > & readoutMap, map<uint32_t,shared_ptr<TH1F> > & mapHist, map<uint32_t,int> & fitStatus, const string & outputDIR, const string & postfix, const string & observable){
+void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<TH1F> > & mapHist, map<uint32_t,int> & fitStatus, const string & outputDIR, const string & postfix, const string & observable){
 
-  std::shared_ptr<TFile>  outputFile;
-  std::shared_ptr<TTree>  outputTree;
+  TFile*  outputFile;
+  TTree*  outputTree;
 
   std::cout<<"### Dumpt output tree for tkCommissioner "<<std::endl;
-  outputFile = std::shared_ptr<TFile>(new TFile((outputDIR+"/tree_delayCorrection_"+postfix+".root").c_str(),"RECREATE"));
-
+  outputFile = new TFile((outputDIR+"/tree_delayCorrection_"+postfix+".root").c_str(),"RECREATE");
+  outputFile->cd();
   // branches definition for the output tree
   readoutMap.at(0)->SetBranchStatus("*",kTRUE);
   readoutMap.at(0)->SetBranchStatus("moduleName",kFALSE);
   readoutMap.at(0)->SetBranchStatus("moduleId",kFALSE);
   readoutMap.at(0)->SetBranchStatus("delay",kFALSE);
-  outputTree = std::shared_ptr<TTree>(readoutMap.at(0)->CopyTree(""));
+  outputTree = (TTree*) readoutMap.at(0)->CopyTree("");
   outputTree->SetName("delayCorrection");
-
+  
   // set branch
   float    measuredDelay, measuredDelayUnc;
   float    measuredMeanAmplitude, measuredMeanAmplitudeUnc;
@@ -439,7 +440,7 @@ void saveOutputTree(const vector<shared_ptr<TTree> > & readoutMap, map<uint32_t,
     peakOutBoundaryRejected = 0;
     amplitude.clear();
     amplitudeUnc.clear();
-    
+
     if(mapHist[detid] == 0 or mapHist[detid] == NULL or mapHist[detid]->GetFunction(Form("Gaus_%s",mapHist[detid]->GetName())) == 0 or mapHist[detid]->GetFunction(Form("Gaus_%s",mapHist[detid]->GetName())) == NULL){
       notFound = 1;       
       notFoundChannels++;	
@@ -571,7 +572,7 @@ void saveOutputTree(const vector<shared_ptr<TTree> > & readoutMap, map<uint32_t,
     bpeakOutBoundaryRejected->Fill();
     bdelayCorr->Fill();
   }    
-    
+
   cout<<endl;
   cout<<"### Write output tree for tkCommissioner: not found channels i.e. no clusters "<<100*float(notFoundChannels)/outputTree->GetEntries()<<" % "<<endl;    
   outputFile->cd();
@@ -621,17 +622,17 @@ void delayValidationPerModule(
   std::sort(fileList.begin(),fileList.end());
   
   std::cout<<"### Build the input TTree Vector"<<std::endl;
-  std::vector< shared_ptr<TTree> > clusters;
-  std::vector< shared_ptr<TTree> > readoutMap;
- for(auto ifile : fileList){
-    files.push_back(shared_ptr<TFile>(TFile::Open(ifile.c_str())));
-    clusters.push_back(shared_ptr<TTree>((TTree*) files.back()->FindObjectAny("clusters")));
-    readoutMap.push_back(shared_ptr<TTree>((TTree*) files.back()->FindObjectAny("readoutMap")));
+  std::vector< TTree*> clusters;
+  std::vector< TTree*> readoutMap;
+  for(auto ifile : fileList){    
+    files.push_back(TFile::Open(ifile.c_str(),"READ"));    
+    clusters.push_back((TTree*) files.back()->FindObjectAny("clusters"));
+    readoutMap.push_back((TTree*) files.back()->FindObjectAny("readoutMap"));
   }
-
-  std::shared_ptr<TFile> _file1 (TFile::Open(file1.c_str()));
-  std::shared_ptr<TTree> delayCorrections ((TTree*)_file1->FindObjectAny("delayCorrections"));
-
+  
+  TFile* _file1 = TFile::Open(file1.c_str());
+  TTree* delayCorrections = (TTree*)_file1->FindObjectAny("delayCorrections");
+  
   //map with key the detId number, one profile associated to it
   std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > channelMap; // for each delay value (i.e. run) gram for each detid storing the observable distribution
   std::map<uint32_t,std::shared_ptr<TH1F> > channelMapMean;
@@ -691,18 +692,14 @@ void delayValidationPerModule(
   
   //// outptut tree with analysis result
   if(saveCorrectionTree){
-
     saveOutputTree(readoutMap,channelMapMean,fitStatusMean,outputDIR,"Mean",observable);
     saveOutputTree(readoutMap,channelMapMPV,fitStatusMPV,outputDIR,"MPV",observable);
- 
   }
   cout<<"### Clear and Close "<<endl;  
   channelMap.clear();
   channelMapMPV.clear();
   channelMapMean.clear();
-  clusters.clear();
   readoutMap.clear();
   files.clear();
-
 }
 
