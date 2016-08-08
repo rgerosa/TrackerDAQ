@@ -21,11 +21,20 @@ options.register ('ouputFileName',"trackerDPG.root",VarParsing.multiplicity.sing
 options.register ('jsonFile',"",VarParsing.multiplicity.singleton,VarParsing.varType.string,
                   'json file to apply')
 
+options.register ('isRawFile',False,VarParsing.multiplicity.singleton,VarParsing.varType.bool,
+                  'when running as input a raw file instead of a standard FEVT')
+
+options.register ('isDatFile',False,VarParsing.multiplicity.singleton,VarParsing.varType.bool,
+                  'when running as input a dat file file instead of a standard FEVT')
+
+
 options.parseArguments()
 
+### start cmssw job
 import FWCore.PythonUtilities.LumiList as LumiList
+from Configuration.StandardSequences.Eras import eras
 
-process = cms.Process("clusterAnalysis")
+process = cms.Process("clusterAnalysis",eras.Run2_2016)
 process.load("FWCore.MessageService.MessageLogger_cfi")
 process.MessageLogger.destinations = ['cout', 'cerr']
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
@@ -34,8 +43,13 @@ process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(options.maxE
 readFiles = cms.untracked.vstring(options.inputFiles)
 secFiles  = cms.untracked.vstring(options.secondaryFiles) 
 
-process.source = cms.Source ("PoolSource",fileNames = readFiles, secondaryFileNames = secFiles)
-process.source.skipEvents = cms.untracked.uint32(options.eventToSkip)
+if not options.isDatFile:
+    process.source = cms.Source ("PoolSource",fileNames = readFiles, secondaryFileNames = secFiles)
+    process.source.skipEvents = cms.untracked.uint32(options.eventToSkip)
+else:
+    process.source = cms.Source("NewEventStreamFileReader",
+                                fileNames = readFiles)
+    process.source.skipEvents = cms.untracked.uint32(options.eventToSkip)
 
 if options.jsonFile != "":
     process.source.lumisToProcess = LumiList.LumiList(filename = options.jsonFile).getVLuminosityBlockRange()
@@ -51,34 +65,39 @@ process.options = cms.untracked.PSet(
 
 #Geometry and field
 process.load("Configuration.StandardSequences.GeometryDB_cff")
+process.load('Configuration.StandardSequences.GeometryRecoDB_cff')
 process.load("Configuration.StandardSequences.MagneticField_AutoFromDBCurrent_cff")
 process.load("Geometry.CommonDetUnit.globalTrackingGeometryDB_cfi")
 process.load("TrackingTools.RecoGeometry.RecoGeometries_cff")
 
 process.load("RecoTracker.MeasurementDet.MeasurementTrackerEventProducer_cfi")
 ## from Vincenzo Innocente: http://cmslxr.fnal.gov/lxr/source/RecoTracker/TrackProducer/test/TrackRefit.py?v=CMSSW_8_1_0_pre2
-process.load("RecoTracker.TrackProducer.TrackRefitter_cfi")
-process.load('RecoTracker.TrackProducer.TrackRefitters_cff')
-process.TrackRefitter.NavigationSchool = ''
-process.TrackRefitter.Fitter = 'FlexibleKFFittingSmoother'
-process.ttrhbwr.ComputeCoarseLocalPositionFromDisk = True
-process.generalTracksFromRefit = process.TrackRefitter.clone(
-   src = cms.InputTag("generalTracks")
-)
 
-process.doAlldEdXEstimators += process.dedxMedian
+## re-fit only when starting from raw-reco of FEVT
+if not options.isRawFile and not options.isDatFile:
+    process.load("RecoTracker.TrackProducer.TrackRefitter_cfi")
+    process.load('RecoTracker.TrackProducer.TrackRefitters_cff')
+    process.TrackRefitter.NavigationSchool = ''
+    process.TrackRefitter.Fitter = 'FlexibleKFFittingSmoother'
+    process.ttrhbwr.ComputeCoarseLocalPositionFromDisk = True
+    process.generalTracksFromRefit = process.TrackRefitter.clone(
+        src = cms.InputTag("generalTracks")
+        )
+    
+    process.doAlldEdXEstimators += process.dedxMedian
 
-process.dedxTruncated40.tracks = "generalTracksFromRefit"
-process.dedxTruncated40.trajectoryTrackAssociation = "generalTracksFromRefit"
-process.dedxHarmonic2.tracks = "generalTracksFromRefit"
-process.dedxHarmonic2.trajectoryTrackAssociation = "generalTracksFromRefit"
-process.dedxMedian.tracks = "generalTracksFromRefit"
-process.dedxMedian.trajectoryTrackAssociation = "generalTracksFromRefit"
-process.dedxHitInfo.tracks = "generalTracksFromRefit"
-process.dedxHitInfo.trajectoryTrackAssociation = "generalTracksFromRefit"
+    process.dedxTruncated40.tracks = "generalTracksFromRefit"
+    process.dedxTruncated40.trajectoryTrackAssociation = "generalTracksFromRefit"
+    process.dedxHarmonic2.tracks = "generalTracksFromRefit"
+    process.dedxHarmonic2.trajectoryTrackAssociation = "generalTracksFromRefit"
+    process.dedxMedian.tracks = "generalTracksFromRefit"
+    process.dedxMedian.trajectoryTrackAssociation = "generalTracksFromRefit"
+    process.dedxHitInfo.tracks = "generalTracksFromRefit"
+    process.dedxHitInfo.trajectoryTrackAssociation = "generalTracksFromRefit"
+    process.refit = cms.Sequence(process.MeasurementTrackerEvent*process.generalTracksFromRefit*process.doAlldEdXEstimators)
 
-process.refit = cms.Sequence(process.MeasurementTrackerEvent*process.generalTracksFromRefit*process.doAlldEdXEstimators)
 
+### Analyzer
 process.analysis = cms.EDAnalyzer('TrackerDpgAnalysis',
    ClustersLabel = cms.InputTag("siStripClusters"),
    PixelClustersLabel = cms.InputTag("siPixelClusters"),
@@ -119,7 +138,20 @@ process.skimming = cms.EDFilter("PhysDecl",
 
 )
 
-process.p = cms.Path(process.skimming*process.refit*process.analysis)
+if options.isRawFile or options.isDatFile:
+    process.load('Configuration.StandardSequences.RawToDigi_cff')    
+    process.load('Configuration.StandardSequences.Reconstruction_cff')
+    process.load('RecoTracker.DeDx.dedxEstimators_cff')
+    process.analysis.TracksLabel = cms.VInputTag(cms.InputTag("generalTracks"))
+    process.p = cms.Path(process.RawToDigi*
+                         process.reconstruction_trackingOnly* ## local and gloabl reco
+                         process.doAlldEdXEstimators*
+                         process.skimming*
+                         process.dedxMedian*
+                         process.analysis)
+
+else:
+    process.p = cms.Path(process.skimming*process.refit*process.analysis)
 
 processDumpFile = open('processDump.py', 'w')
 print >> processDumpFile, process.dumpPython()

@@ -26,6 +26,8 @@ parser.add_option('--outputDIR',    action="store", type="string", dest="outputD
 parser.add_option('--jsonFile',     action="store", type="string", dest="jsonFile",      default=""         ,    help="json file to be applied")
 parser.add_option('--eventsPerJob', action="store", type=int,      dest="eventsPerJob",  default=500        ,    help="number of events for each job")
 parser.add_option('--delayStep',    action="store", type=int,      dest="delayStep",     default=0          ,    help="used to pickup the right delay file")
+parser.add_option('--isRawFile',    action="store_true", dest="isRawFile", help="isRawFile")
+parser.add_option('--isDatFile',    action="store_true", dest="isDatFile", help="isDatFile")
 
 ############################################                                                                                                                                  
 parser.add_option('--batchMode',    action="store_true", dest="batchMode", help="batchMode")
@@ -38,6 +40,18 @@ parser.add_option('--queque',       action="store",      type="string", dest="qu
 if __name__ == '__main__':
 
   currentDIR = os.getcwd();
+
+  if options.isRawFile and options.isDatFile:
+    sys.exit('isRawFile and isDatFile cannnot be set to true at the same time');
+
+  isRawFile = False;
+  if options.isRawFile:
+    isRawFile = True;
+
+  isDatFile = False;
+  if options.isDatFile:
+    isDatFile = True;
+  
 
   listOfFiles = [];
   os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select find "+options.inputDIR+" -name *.root > file.temp ")
@@ -73,7 +87,7 @@ if __name__ == '__main__':
       job.write('cp '+currentDIR+'/trackerdpganalysis_cfg.py ./ \n');
       job.write('cp '+currentDIR+'/*delaystep*'+str(options.delayStep)+'*xml ./ \n');
       job.write('cp '+currentDIR+'/'+options.jsonFile+' ./ \n');
-      job.write('cmsRun trackerdpganalysis_cfg.py inputFiles=root://eoscms.cern.ch//'+file+' delayStep='+str(options.delayStep)+' eventToSkip='+str(starEvent[ijob])+' maxEvents='+str(options.eventsPerJob)+' ouputFileName=trackerDPG_'+str(njob)+".root jsonFile="+options.jsonFile+" \n");
+      job.write('cmsRun trackerdpganalysis_cfg.py inputFiles=root://eoscms.cern.ch//'+file+' delayStep='+str(options.delayStep)+' eventToSkip='+str(starEvent[ijob])+' maxEvents='+str(options.eventsPerJob)+' ouputFileName=trackerDPG_'+str(njob)+".root jsonFile="+options.jsonFile+" isRawFile="str(isRawFile)+" isDatFile="+str(isDatFile)+"\n");
       job.write("xrdcp -f trackerDPG_"+str(njob)+".root root://eoscms.cern.ch//eos/cms/"+options.outputDIR+"\n");
       os.system('chmod a+x %s/job_file_%d_sub_%d.sh'%(options.jobDIR,ifile,ijob))
       if options.submit:
