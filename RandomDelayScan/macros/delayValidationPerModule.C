@@ -136,8 +136,10 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
       channelMap[detid][delay-correction]->Fill(value);
     }
     std::cout<<std::endl;
-    map.at(iTree)->SetDirectory(0);    
-    files.at(iTree)->Close(); // to prevent high RAM occupancy    
+    if(iTree != 0){
+      map.at(iTree)->SetDirectory(0);          
+      files.at(iTree)->Close(); // to prevent high RAM occupancy    
+    }
   }
   std::cout<<"Loop on events terminated"<<std::endl;  
 
@@ -151,8 +153,7 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
   std::auto_ptr<TCanvas> canvas(new TCanvas("canvas","",600,625));
   canvas->SetTickx();
   canvas->SetTicky();
-
-
+  
   // make the convuluated fit as suggested in https://root.cern.ch/root/html/tutorials/fit/langaus.C.html
   Double_t parameters[4];
   Double_t parametersHigh[4];
@@ -181,7 +182,7 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
     }
 
     for(std::map<float,shared_ptr<TH1F> >::const_iterator itHisto = iMap.second.begin(); itHisto != iMap.second.end(); itHisto++){
-
+      
       // to fill the Mean --> use always the histogram properties given its binning
       channelMapMean[iMap.first]->SetBinContent(channelMapMPV[iMap.first]->FindBin(itHisto->first),itHisto->second->GetMean());
       // as error use the error on the mean as a proxy
@@ -304,7 +305,6 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
   std::cout<<std::endl;
   if(doFitOfClusterShape)
     std::cout<<"Bad channel fit from Landau+Gaus fit "<<iBadChannelFit<<std::endl;  
-
   
   // correct profiles and fit them with a gaussian
   std::cout<<"Analyze each single channel --> Profile "<<std::endl;
@@ -329,7 +329,7 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
   }
  
   std::cout<<std::endl;
-  std::cout<<"NFits performed on Mean "<<iFit<<" bad ones : "<<100*badFits/iFit<<" % "<<" noFit result "<<100*noFitResult/iFit<<std::endl;
+  std::cout<<"NFits performed on Mean "<<iFit<<" bad ones : "<<100*double(badFits)/iFit<<" % "<<" noFit result "<<100*double(noFitResult)/iFit<<std::endl;
 
   std::cout<<"Start making MPV fits "<<std::endl;
   iFit = 0;
@@ -352,11 +352,12 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
     }
   }
   std::cout<<std::endl;
-  std::cout<<"NFits performed on MPV "<<iFit<<" bad ones : "<<100*badFits/iFit<<" % "<<" noFit result "<<100*noFitResult/iFit<<std::endl;
+  std::cout<<"NFits performed on MPV "<<iFit<<" bad ones : "<<100*double(badFits)/iFit<<" % "<<" noFit result "<<100*double(noFitResult)/iFit<<std::endl;
   
   std::cout<<"###################################"<<std::endl;
   std::cout<<"##### End of Channel Analysis #####"<<std::endl;
-  std::cout<<"###################################"<<std::endl;  
+  std::cout<<"###################################"<<std::endl; 
+
 }
 
 
@@ -372,7 +373,7 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
   readoutMap.at(0)->SetBranchStatus("*",kTRUE);
   readoutMap.at(0)->SetBranchStatus("moduleName",kFALSE);
   readoutMap.at(0)->SetBranchStatus("moduleId",kFALSE);
-  readoutMap.at(0)->SetBranchStatus("delay",kFALSE);
+  readoutMap.at(0)->SetBranchStatus("delay",kFALSE);  
   outputTree = (TTree*) readoutMap.at(0)->CopyTree("");
   outputTree->SetName("delayCorrection");
   
@@ -414,16 +415,17 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
   TBranch* bfitRejected          = outputTree->Branch("fitRejected",&fitRejected,"fitRejected/I");
   TBranch* bdelayCorr        = outputTree->Branch("delayCorr",&delayCorr,"delayCorr/F");
   
-  
+  readoutMap.at(0)->SetBranchAddress("detid",&detid);
   outputTree->SetBranchAddress("Detid",&detid);
+  
   long int notFoundChannels = 0;
   
-  cout<<"### Start the loop on the channel map "<<endl;    
-  for(int iChannel = 0; iChannel < outputTree->GetEntries(); iChannel++){
+  cout<<"### Start the loop on the channel map "<<endl;      
+  for(long int iChannel = 0; iChannel < readoutMap.at(0)->GetEntries(); iChannel++){
     cout.flush();
-    if(iChannel % 100 == 0) cout<<"\r"<<"iChannel "<<100*double(iChannel)/(outputTree->GetEntries())<<" % ";
-    outputTree->GetEntry(iChannel);
-    
+    if(iChannel % 100 == 0) cout<<"\r"<<"iChannel "<<100*double(iChannel)/(readoutMap.at(0)->GetEntries())<<" % ";
+    readoutMap.at(0)->GetEntry(iChannel);
+        
     measuredDelay    = 0.;
     measuredDelayUnc = 0.;
     measuredMeanAmplitude    = 0.;
@@ -550,11 +552,11 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
 	outputFile->cd();
       }
       
-      if(not notFound and not significanceRejected and not amplitudeRejected and not sigmaRejected and not nFilledBinRejected and not fitRejected and not peakOutBoundaryRejected)
-	
+      if(not notFound and not significanceRejected and not amplitudeRejected and not sigmaRejected and not nFilledBinRejected and not fitRejected and not peakOutBoundaryRejected)	
 	delayCorr = mapHist[detid]->GetFunction(Form("Gaus_%s",mapHist[detid]->GetName()))->GetParameter(1);
     }
     
+
     bmeasuredDelay->Fill();
     bmeasuredDelayUnc->Fill();
     bmeasuredMeanAmplitude->Fill();
@@ -570,7 +572,7 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
     bnFilledBinRejected->Fill();
     bfitRejected->Fill();      
     bpeakOutBoundaryRejected->Fill();
-    bdelayCorr->Fill();
+    bdelayCorr->Fill();    
   }    
 
   cout<<endl;
@@ -620,12 +622,13 @@ void delayValidationPerModule(
   system("rm file.temp");
 
   std::sort(fileList.begin(),fileList.end());
-  
+
   std::cout<<"### Build the input TTree Vector"<<std::endl;
   std::vector< TTree*> clusters;
   std::vector< TTree*> readoutMap;
   for(auto ifile : fileList){    
     files.push_back(TFile::Open(ifile.c_str(),"READ"));    
+    cout<<"file "<<ifile<<endl;
     clusters.push_back((TTree*) files.back()->FindObjectAny("clusters"));
     readoutMap.push_back((TTree*) files.back()->FindObjectAny("readoutMap"));
   }
@@ -701,5 +704,6 @@ void delayValidationPerModule(
   channelMapMean.clear();
   readoutMap.clear();
   files.clear();
+  
 }
 
