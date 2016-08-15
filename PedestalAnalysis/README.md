@@ -6,6 +6,7 @@ CMSSW Setup:
       cd CMSSW_8_0_14/src ;
       cmsenv;
       git-cms-init;
+      git-cms-addpkg DataFormats/SiStripCommon/;
       git-cms-addpkg DPGAnalysis/SiStripTools/;
       git cms-addpkg DQM/SiStripCommissioningAnalysis;
       git cms-addpkg DQM/SiStripCommissioningClients;
