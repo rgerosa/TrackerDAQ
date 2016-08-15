@@ -70,7 +70,7 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
   float    noiseIntegral3Sigma_, noiseIntegral3SigmaFromFit_;
   float    noiseIntegral4Sigma_, noiseIntegral4SigmaFromFit_;
   float    noiseIntegral5Sigma_, noiseIntegral5SigmaFromFit_;
-  float    kSValue_, kSProbab_, jBValue_, jBProbab_;
+  float    kSValue_, kSProbab_, jBValue_, jBProbab_, aDValue_, aDProbab_;
   vector<float> noiseDistribution_, noiseDistributionError_;
   float xMin_, xMax_, nBin_ ;
 
@@ -108,8 +108,10 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
   outputTree->Branch("noiseIntegral5SigmaFromFit",&noiseIntegral4SigmaFromFit_,"noiseIntegral5SigmaFromFit/F");
   outputTree->Branch("kSValue",&kSValue_,"kSValue/F");
   outputTree->Branch("jBValue",&jBValue_,"jBValue/F");
+  outputTree->Branch("aDValue",&aDValue_,"aDValue/F");
   outputTree->Branch("kSProbab",&kSProbab_,"kSProbab/F");
   outputTree->Branch("jBProbab",&jBProbab_,"jBProbab/F");
+  outputTree->Branch("aDProbab",&aDProbab_,"aDProbab/F");
   outputTree->Branch("xMin",&xMin_,"xMin/F");
   outputTree->Branch("xMax",&xMax_,"xMax/F");
   outputTree->Branch("nBin",&nBin_,"nBin/F");
@@ -176,6 +178,7 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
 	  noiseIntegral5Sigma_ = 0.; noiseIntegral5SigmaFromFit_ = 0.; 
 	  kSProbab_ = 0.; jBProbab_ = 0.;
 	  kSValue_ = 0.; jBValue_ = 0.; 
+	  aDValue_= 0.; aDProbab_ = 0.;
 	  nBin_ = 0.; xMin_ = 0.; xMax_ = 0.;
 
 	  // basic info
@@ -200,19 +203,21 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
 	  noiseIntegral3Sigma_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+noiseRMS_*3),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-noiseRMS_*3)))/histoNoiseStrip.Integral();
 	  noiseIntegral4Sigma_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+noiseRMS_*4),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-noiseRMS_*4)))/histoNoiseStrip.Integral();
 	  noiseIntegral5Sigma_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+noiseRMS_*5),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-noiseRMS_*5)))/histoNoiseStrip.Integral();
-
 	  // make a gaussian fit	  
 	  TF1 fitFunc ("fitFunc","gaus(0)",histoNoise->GetXaxis()->GetXmin(),histoNoise->GetXaxis()->GetXmax());
 	  fitFunc.SetParameters(histoNoiseStrip.Integral(),noiseMean_,noiseRMS_);
-	  TFitResultPtr result = histoNoiseStrip.Fit(&fitFunc,"QSL");
+	  TFitResultPtr result = histoNoiseStrip.Fit(&fitFunc,"QSR");
 	  if(result.Get()){
+
 	    fitStatus_     = result->Status();
 	    fitGausNormalization_  = fitFunc.GetParameter(0);
 	    fitGausMean_   = fitFunc.GetParameter(1);
 	    fitGausSigma_  = fitFunc.GetParameter(2);
 	    fitGausNormalizationError_  = fitFunc.GetParError(0);
-	    fitGausMeanError_   = fitFunc.GetParError(1);
-	    fitGausSigmaError_  = fitFunc.GetParError(2);
+	    fitGausMeanError_  = fitFunc.GetParError(1);
+	    fitGausSigmaError_ = fitFunc.GetParError(2);
+	    fitChi2_           = result->Chi2();
+	    fitChi2Probab_     = result->Prob();
 
 	    noiseIntegral3SigmaFromFit_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+fitGausSigma_*3),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-fitGausSigma_*3)))/histoNoiseStrip.Integral();
 	    noiseIntegral4SigmaFromFit_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+fitGausSigma_*4),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-fitGausSigma_*4)))/histoNoiseStrip.Integral();
@@ -220,16 +225,16 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
 	    
 	    jBValue_   = (histoNoiseStrip.Integral()/6)*(noiseSkewness_*noiseSkewness_+(noiseKurtosis_*noiseKurtosis_)/4);	  
 	    jBProbab_  = ROOT::Math::chisquared_cdf_c(jBValue_,2);
-	    
+
 	    TH1F* randomHisto = (TH1F*) histoNoiseStrip.Clone("randomHisto");
 	    randomHisto->Reset();
 	    randomHisto->SetDirectory(0);
 	    if(histoNoiseStrip.Integral() != 0){	      
 	      randomHisto->FillRandom("fitFunc",histoNoiseStrip.Integral());	    
-	      fitChi2_ = result->Chi2();
-	      fitChi2Probab_ = result->Prob();
 	      kSValue_  = histoNoiseStrip.KolmogorovTest(randomHisto,"MN");
 	      kSProbab_ = histoNoiseStrip.KolmogorovTest(randomHisto,"N");	    
+	      aDValue_ = histoNoiseStrip.AndersonDarlingTest(randomHisto,"T");
+	      aDProbab_ = histoNoiseStrip.AndersonDarlingTest(randomHisto);
 	    }
 	    if(randomHisto) delete randomHisto;	    
 	  }
@@ -251,11 +256,11 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
 	    noiseDistribution_.push_back(histoNoiseStrip.GetBinContent(iBin+1));
 	    noiseDistributionError_.push_back(histoNoiseStrip.GetBinError(iBin+1));	      
 	  }
-
+	  
 	  nBin_ = histoNoiseStrip.GetNbinsX();
 	  xMin_ = histoNoise->GetXaxis()->GetBinLowEdge(1);
 	  xMax_ = histoNoise->GetXaxis()->GetBinLowEdge(histoNoise->GetNbinsX()+1);
-
+	  
 	  // fill all branches for each strip
 	  ouputTreeFile->cd();
 	  outputTree->Fill();

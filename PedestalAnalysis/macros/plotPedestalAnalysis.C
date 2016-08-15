@@ -24,7 +24,7 @@ void storeOutputCanvas(TCanvas* canvas, TH1F & noiseDistribution,  TF1 & fitFunc
   fitFunction.Draw("Lsame");
   noiseDistribution.Draw("EPsame");
 
-  TLegend leg (0.6,0.6,0.95,0.9);
+  TLegend leg (0.6,0.55,0.95,0.9);
   leg.SetFillColor(0);
   leg.SetFillStyle(0);
   leg.SetBorderSize(0);
@@ -32,6 +32,7 @@ void storeOutputCanvas(TCanvas* canvas, TH1F & noiseDistribution,  TF1 & fitFunc
   leg.AddEntry((TObject*)0,Form("P(#chi^{2}) = %s",parameters["fitChi2Probab"].c_str()),"");
   leg.AddEntry((TObject*)0,Form("P(KS) = %s",parameters["kSProbab"].c_str()),"");
   leg.AddEntry((TObject*)0,Form("P(JB) = %s",parameters["jBProbab"].c_str()),"");
+  leg.AddEntry((TObject*)0,Form("P(AD) = %s",parameters["aDProbab"].c_str()),"");
   leg.AddEntry((TObject*)0,Form("Mean = %s",parameters["fitGausMean"].c_str()),"");
   leg.AddEntry((TObject*)0,Form("Sigma = %s",parameters["fitGausSigma"].c_str()),"");
   leg.AddEntry((TObject*)0,Form("Skewness = %s",parameters["noiseSkewness"].c_str()),"");
@@ -55,7 +56,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
 
   uint32_t detid,fedKey;
   uint16_t fecCrate,fecSlot, fecRing, ccuAdd, ccuChan, lldChannel, fedId, fedCh, apvId, stripId;
-  float    fitChi2Probab, kSProbab, jBProbab;
+  float    fitChi2Probab, kSProbab, jBProbab, aDProbab;
   float    noiseSkewness, noiseKurtosis;
   float    fitGausMean, fitGausSigma, fitGausNormalization;
   float    fitGausMeanError, fitGausSigmaError, fitGausNormalizationError;
@@ -79,6 +80,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
   tree->SetBranchStatus("fitChi2Probab",kTRUE);
   tree->SetBranchStatus("kSProbab",kTRUE);
   tree->SetBranchStatus("jBProbab",kTRUE);
+  tree->SetBranchStatus("aDProbab",kTRUE);
   tree->SetBranchStatus("fitGausNormalization",kTRUE);
   tree->SetBranchStatus("fitGausMean",kTRUE);
   tree->SetBranchStatus("fitGausSigma",kTRUE);
@@ -115,6 +117,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
   tree->SetBranchAddress("noiseSkewness",&noiseSkewness);
   tree->SetBranchAddress("noiseKurtosis",&noiseKurtosis);
   tree->SetBranchAddress("kSProbab",&kSProbab);
+  tree->SetBranchAddress("aDProbab",&aDProbab);
   tree->SetBranchAddress("jBProbab",&jBProbab);
   tree->SetBranchAddress("noiseDistribution",&noiseDistribution);
   tree->SetBranchAddress("noiseDistributionError",&noiseDistributionError);
@@ -125,16 +128,20 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
   TFile* badKsTest = new TFile((outputDIR+"/badStripsKsTest.root").c_str(),"RECREATE");
   TFile* badjBTest = new TFile((outputDIR+"/badStripsjBTest.root").c_str(),"RECREATE");
   TFile* badChi2Test = new TFile((outputDIR+"/badStripsChi2Test.root").c_str(),"RECREATE");
+  TFile* badaDTest = new TFile((outputDIR+"/badStripsaDTest.root").c_str(),"RECREATE");
   TFile* badCombinedTest = new TFile((outputDIR+"/badStripsCombined.root").c_str(),"RECREATE");
   TFile* badJBNotKSTest = new TFile((outputDIR+"/badStripsjBNotKS.root").c_str(),"RECREATE");
-  TFile* badChi2NotKSandjBTest = new TFile((outputDIR+"/badStripsNotKsandjB.root").c_str(),"RECREATE");
+  TFile* badaDNotKSandjBTest = new TFile((outputDIR+"/badStripaDNotKSNotjB.root").c_str(),"RECREATE");
+  TFile* badChi2NotKSandjBandaDTest = new TFile((outputDIR+"/badStripsChi2NotKsandjBandaD.root").c_str(),"RECREATE");
 
   long int nbadKsTest = 0;
   long int nbadjBTest = 0;
+  long int nbadaDTest = 0;
   long int nbadChi2Test = 0;
   long int nbadCombinedTest = 0;
   long int nbadJBNotKSTest = 0;
-  long int nbadChi2NotKSandjBTest = 0;
+  long int nbadaDNotKSandjBTest = 0;
+  long int nbadChi2NotKSandjBandaDTest = 0;
 
   TCanvas* canvas = new TCanvas("canvas","canvas",600,650);
 
@@ -179,6 +186,9 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
     stringstream sChi2;
     sChi2 << std::scientific << fitChi2Probab;
     fitParam["fitChi2Probab"] = sChi2.str();
+    stringstream sAD;
+    sAD << std::scientific << aDProbab;
+    fitParam["aDProbab"] = sAD.str();
 
     moduleDenominator[detid] = moduleDenominator[detid]+1;
 
@@ -206,25 +216,37 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
 
-    if(fitChi2Probab < quantile3sigma){
+    if(fitChi2Probab < quantile4sigma){
       badChi2Test->cd();
       nbadChi2Test++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
 
+    if(aDProbab < quantile3sigma){
+      badaDTest->cd();
+      nbadaDTest++;
+      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);
+    }
     if(jBProbab < quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile1sigma){
       badJBNotKSTest->cd();
       nbadJBNotKSTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
 
-    if(fitChi2Probab < quantile3sigma and jBProbab > quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile1sigma){
-      badChi2NotKSandjBTest->cd();
-      nbadChi2NotKSandjBTest++;
+    if(aDProbab < quantile3sigma and jBProbab > quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile1sigma){
+      badaDNotKSandjBTest->cd();
+      nbadaDNotKSandjBTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
 
-    if(kSProbab < quantile2sigma or (kSProbab > quantile2sigma and kSProbab < quantile1sigma and jBProbab < quantile5sigma) or (kSProbab > quantile2sigma and kSProbab < quantile1sigma and jBProbab > quantile5sigma and fitChi2Probab < quantile3sigma)){
+
+    if(fitChi2Probab < quantile4sigma and jBProbab > quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile1sigma and aDProbab > quantile3sigma){
+      badChi2NotKSandjBandaDTest->cd();
+      nbadChi2NotKSandjBandaDTest++;
+      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
+    }
+
+    if(kSProbab < quantile2sigma or (kSProbab > quantile2sigma and kSProbab < quantile1sigma and jBProbab < quantile5sigma) or (kSProbab > quantile2sigma and kSProbab < quantile1sigma and jBProbab > quantile5sigma and aDProbab < quantile3sigma)  or (kSProbab > quantile2sigma and kSProbab < quantile1sigma and jBProbab > quantile5sigma and aDProbab > quantile3sigma and fitChi2Probab < quantile4sigma)){
       badCombinedTest->cd();
       nbadCombinedTest++;
       moduleNumerator[detid] = moduleNumerator[detid]+1;
@@ -233,17 +255,21 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
   }
   std::cout<<std::endl;
   badKsTest->Close();
+  badaDTest->Close();
   badjBTest->Close();
   badChi2Test->Close();
   badCombinedTest->Close();
   badJBNotKSTest->Close();
-  badChi2NotKSandjBTest->Close();
+  badaDNotKSandjBTest->Close();
+  badChi2NotKSandjBandaDTest->Close();
 
   cout<<"#### Bad KS Test Channels "<<nbadKsTest<<" ---> "<<double(nbadKsTest)/tree->GetEntries()<<" % "<<endl;
   cout<<"#### Bad JB Test Channels "<<nbadjBTest<<" ---> "<<double(nbadjBTest)/tree->GetEntries()<<" % "<<endl;
+  cout<<"#### Bad AD Test Channels "<<nbadaDTest<<" ---> "<<double(nbadaDTest)/tree->GetEntries()<<" % "<<endl;
   cout<<"#### Bad Chi2 Test Channels "<<nbadChi2Test<<" ---> "<<double(nbadChi2Test)/tree->GetEntries()<<" % "<<endl;
   cout<<"#### Bad JB but not KS Test Channels "<<nbadJBNotKSTest<<" ---> "<<double(nbadJBNotKSTest)/tree->GetEntries()<<" % "<<endl;
-  cout<<"#### Bad Chi2 but not KS and JB Test Channels "<<nbadChi2NotKSandjBTest<<" ---> "<<double(nbadChi2NotKSandjBTest)/tree->GetEntries()<<" % "<<endl;
+  cout<<"#### Bad AD but not KS and not JB Test Channels "<<nbadaDNotKSandjBTest<<" ---> "<<double(nbadaDNotKSandjBTest)/tree->GetEntries()<<" % "<<endl;
+  cout<<"#### Bad Chi2 but not KS and JB and AD Test Channels "<<nbadChi2NotKSandjBandaDTest<<" ---> "<<double(nbadChi2NotKSandjBandaDTest)/tree->GetEntries()<<" % "<<endl;
   cout<<"#### Bad Combined Test Channels "<<nbadCombinedTest<<" ---> "<<double(nbadCombinedTest)/tree->GetEntries()<<" % "<<endl;
 
   ofstream channelMap ((outputDIR+"/fractionOfGoodChannels.txt").c_str());
