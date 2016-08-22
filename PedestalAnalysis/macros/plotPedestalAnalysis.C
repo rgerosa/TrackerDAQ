@@ -1,5 +1,6 @@
 #include "CMS_lumi.h"
 
+static float quantile       = 0.5;
 static float quantile1sigma = 0.317310507863;
 static float quantile2sigma = 0.045500263896;
 static float quantile3sigma = 0.002699796063;
@@ -227,26 +228,26 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
       nbadaDTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);
     }
-    if(jBProbab < quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile1sigma){
+    if(jBProbab < quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile){
       badJBNotKSTest->cd();
       nbadJBNotKSTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
 
-    if(aDProbab < quantile3sigma and jBProbab > quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile1sigma){
+    if(aDProbab < quantile3sigma and jBProbab > quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile){
       badaDNotKSandjBTest->cd();
       nbadaDNotKSandjBTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
 
 
-    if(fitChi2Probab < quantile4sigma and jBProbab > quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile1sigma and aDProbab > quantile3sigma){
+    if(fitChi2Probab < quantile4sigma and jBProbab > quantile5sigma and kSProbab > quantile2sigma and kSProbab < quantile and aDProbab > quantile3sigma){
       badChi2NotKSandjBandaDTest->cd();
       nbadChi2NotKSandjBandaDTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
 
-    if(kSProbab < quantile2sigma or (kSProbab > quantile2sigma and kSProbab < quantile1sigma and jBProbab < quantile5sigma) or (kSProbab > quantile2sigma and kSProbab < quantile1sigma and jBProbab > quantile5sigma and aDProbab < quantile3sigma)  or (kSProbab > quantile2sigma and kSProbab < quantile1sigma and jBProbab > quantile5sigma and aDProbab > quantile3sigma and fitChi2Probab < quantile4sigma)){
+    if(kSProbab < quantile2sigma or (kSProbab > quantile2sigma and kSProbab < quantile and jBProbab < quantile5sigma) or (kSProbab > quantile2sigma and kSProbab < quantile and jBProbab > quantile5sigma and aDProbab < quantile3sigma)  or (kSProbab > quantile2sigma and kSProbab < quantile and jBProbab > quantile5sigma and aDProbab > quantile3sigma and fitChi2Probab < quantile4sigma)){
       badCombinedTest->cd();
       nbadCombinedTest++;
       moduleNumerator[detid] = moduleNumerator[detid]+1;
@@ -276,4 +277,10 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
   for(auto module : moduleDenominator)
     channelMap << module.first <<"  "<< 1. - double(moduleNumerator[module.first])/double(moduleDenominator[module.first]) << "\n";
   channelMap.close();
+
+  ofstream nchannelMap ((outputDIR+"/numberBadChannels.txt").c_str());
+  for(auto module : moduleNumerator)
+    nchannelMap << module.first <<"  "<< moduleNumerator[module.first] << "\n";
+  nchannelMap.close();
+
 }
