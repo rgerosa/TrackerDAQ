@@ -9,21 +9,21 @@ static float quantile5sigma = 0.000000573303;
 
 static int  reductionFactor = 1;
 
-void storeOutputCanvas(TCanvas* canvas, TH1F & noiseDistribution,  TF1 & fitFunction, const TString & name, map<string,string> & parameters){
+void storeOutputCanvas(TCanvas* canvas, TH1F * noiseDistribution,  TF1 * fitFunction, const TString & name, map<string,string> & parameters){
 
   canvas->cd();
-  noiseDistribution.SetMarkerColor(kBlack);
-  noiseDistribution.SetMarkerStyle(20);
-  noiseDistribution.SetMarkerSize(1);
-  noiseDistribution.GetXaxis()->SetTitle("noise (ADC)");
-  noiseDistribution.GetYaxis()->SetTitle("Events");
-  noiseDistribution.Draw("EP");
+  noiseDistribution->SetMarkerColor(kBlack);
+  noiseDistribution->SetMarkerStyle(20);
+  noiseDistribution->SetMarkerSize(1);
+  noiseDistribution->GetXaxis()->SetTitle("noise (ADC)");
+  noiseDistribution->GetYaxis()->SetTitle("Events");
+  noiseDistribution->Draw("EP");
   CMS_lumi(canvas,"",true);
   
-  fitFunction.SetLineColor(kRed);
-  fitFunction.SetLineWidth(2);
-  fitFunction.Draw("Lsame");
-  noiseDistribution.Draw("EPsame");
+  fitFunction->SetLineColor(kRed);
+  fitFunction->SetLineWidth(2);
+  fitFunction->Draw("Lsame");
+  noiseDistribution->Draw("EPsame");
 
   TLegend leg (0.6,0.55,0.95,0.9);
   leg.SetFillColor(0);
@@ -148,7 +148,12 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
 
   map<uint32_t,uint32_t> moduleDenominator;
   map<uint32_t,uint32_t> moduleNumerator;
- 
+  map<uint32_t,uint32_t> moduleNonEdgeNumerator;
+  map<uint32_t,uint32_t> moduleAPVEdgeNumerator;
+
+  TH1F* noiseHist = NULL;
+  TF1*  noiseFit  = NULL;
+
   for(long int iChannel = 0; iChannel < tree->GetEntries(); iChannel++){
     tree->GetEntry(iChannel);
     cout.flush();
@@ -192,19 +197,25 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
     fitParam["aDProbab"] = sAD.str();
 
     moduleDenominator[detid] = moduleDenominator[detid]+1;
-
-    TH1F noiseHist ("noiseHist","",nBin,xMin,xMax);
+    if(noiseHist == NULL){
+      noiseHist = new TH1F ("noiseHist","",nBin,xMin,xMax);
+      noiseHist->Sumw2();
+    }
+    noiseHist->Reset();
     for(int iBin = 0; iBin < noiseDistribution->size(); iBin++){
-      noiseHist.SetBinContent(iBin+1,noiseDistribution->at(iBin));
-      noiseHist.SetBinError(iBin+1,noiseDistributionError->at(iBin));
+      noiseHist->SetBinContent(iBin+1,noiseDistribution->at(iBin));
+      noiseHist->SetBinError(iBin+1,noiseDistributionError->at(iBin));
     }
 
-    TF1  noiseFit  ("noiseFist","gaus(0)",xMin,xMax);
-    noiseFit.SetParameters(fitGausNormalization,fitGausMean,fitGausSigma);
-    noiseFit.SetParError(0,fitGausNormalizationError);
-    noiseFit.SetParError(1,fitGausMeanError);
-    noiseFit.SetParError(2,fitGausSigmaError);
-        
+    if(noiseFit == NULL)
+      noiseFit = new TF1 ("noiseFist","gaus(0)",xMin,xMax);
+    
+    noiseFit->SetRange(xMin,xMax);
+    noiseFit->SetParameters(fitGausNormalization,fitGausMean,fitGausSigma);
+    noiseFit->SetParError(0,fitGausNormalizationError);
+    noiseFit->SetParError(1,fitGausMeanError);
+    noiseFit->SetParError(2,fitGausSigmaError);
+
     if(kSProbab < quantile2sigma){
       badKsTest->cd();
       nbadKsTest++;
@@ -251,6 +262,10 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
       badCombinedTest->cd();
       nbadCombinedTest++;
       moduleNumerator[detid] = moduleNumerator[detid]+1;
+      if(stripId == 1 or stripId == 128)
+	moduleAPVEdgeNumerator[detid] = moduleAPVEdgeNumerator[detid]+1;
+      else
+	moduleNonEdgeNumerator[detid] = moduleNonEdgeNumerator[detid]+1;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
   }
@@ -282,5 +297,15 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR){
   for(auto module : moduleNumerator)
     nchannelMap << module.first <<"  "<< moduleNumerator[module.first] << "\n";
   nchannelMap.close();
+
+  ofstream nNonEdgechannelMap ((outputDIR+"/numberBadChannelsNonEdge.txt").c_str());
+  for(auto module : moduleNonEdgeNumerator)
+    nNonEdgechannelMap << module.first <<"  "<< moduleNonEdgeNumerator[module.first] << "\n";
+  nNonEdgechannelMap.close();
+
+  ofstream nAPVEdgechannelMap ((outputDIR+"/numberBadChannelsAPVEdge.txt").c_str());
+  for(auto module : moduleAPVEdgeNumerator)
+    nAPVEdgechannelMap << module.first <<"  "<< moduleAPVEdgeNumerator[module.first] << "\n";
+  nAPVEdgechannelMap.close();
 
 }

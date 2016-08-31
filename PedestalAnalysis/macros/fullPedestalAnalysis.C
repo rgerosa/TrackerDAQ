@@ -3,8 +3,10 @@
 
 #include "CMS_lumi.h"
 
+
 // reduce the number of channels by                                                                                                                                                                 
 static int  reductionFactor = 1;
+static bool generateRandomDistribution = false;
 
 void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCablingMap, string outputFileName){
 
@@ -119,6 +121,10 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
   bool histoBranches = false;
 
   // Loop on the file list to extract each histogram 2D DQM histo with full noise distribution  
+  TH1F* histoNoiseStrip = NULL;
+  TF1*  fitFunc = NULL;
+  TH1F* randomHisto = NULL;
+  TFitResultPtr result;
   for(auto file : fileList){
     cout<<"input file: "<<file<<endl;
     TFile* inputFile = TFile::Open(file.c_str(),"READ");
@@ -145,137 +151,162 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
       else
 	cerr<<"hex number to short "<<fedKeyStr<<" --> please check "<<endl;
 
-      TObject* obj = (TObject*) inputFile->Get(objName.Data());
-      if(obj->InheritsFrom(TH2::Class())){
-	histoNoise = (TH2*) inputFile->Get(objName.Data());
-	// extract single strip noise histogram --> loop on the y-axis
-	uint16_t apvID = 0;
-	uint16_t stripID = 0; 
-	for(int iBinY = 0; iBinY < histoNoise->GetNbinsY(); iBinY++){
-	  TH1F histoNoiseStrip ("histoNoiseStrip","",histoNoise->GetNbinsX(),histoNoise->GetXaxis()->GetXmin(),histoNoise->GetXaxis()->GetXmax());
-	  histoNoiseStrip.SetDirectory(0);
-	  histoNoiseStrip.Sumw2();
-	  // two multiplexed APV per line
-	  if(iBinY < histoNoise->GetNbinsY()/2) apvID = 1;
-	  else apvID = 2;
-	  // strip id
-	  stripID++;
-	  if(stripID > 128) stripID = 1;
-	  // loop on x-axis bin
-	  for(int iBinX = 0; iBinX < histoNoise->GetNbinsX(); iBinX++){
-	    histoNoiseStrip.SetBinContent(iBinX+1,histoNoise->GetBinContent(iBinX+1,iBinY+1));
-	    histoNoiseStrip.SetBinError(iBinX+1,histoNoise->GetBinError(iBinX+1,iBinY+1));	    
-	  }
+      inputFile->GetObject(objName.Data(),histoNoise);
+      // extract single strip noise histogram --> loop on the y-axis
+      uint16_t apvID = 0;
+      uint16_t stripID = 0;       
+      if(histoNoiseStrip == 0 or histoNoiseStrip == NULL){
+	histoNoiseStrip = new TH1F ("histoNoiseStrip","",histoNoise->GetNbinsX(),histoNoise->GetXaxis()->GetXmin(),histoNoise->GetXaxis()->GetXmax());
+	histoNoiseStrip->Sumw2();
+      }
+      for(int iBinY = 0; iBinY < histoNoise->GetNbinsY(); iBinY++){
+	histoNoiseStrip->Reset();
+	histoNoiseStrip->SetDirectory(0);
+	// two multiplexed APV per line
+	if(iBinY < histoNoise->GetNbinsY()/2) apvID = 1;
+	else apvID = 2;
+	// strip id
+	stripID++;
+	if(stripID > 128) stripID = 1;
+	// loop on x-axis bin
+	for(int iBinX = 0; iBinX < histoNoise->GetNbinsX(); iBinX++){
+	  histoNoiseStrip->SetBinContent(iBinX+1,histoNoise->GetBinContent(iBinX+1,iBinY+1));
+	  histoNoiseStrip->SetBinError(iBinX+1,histoNoise->GetBinError(iBinX+1,iBinY+1));	    
+	}
+     	
+	// to initialize branches
+	detid_ = 0; fedKey_ = 0; fecCrate_ = 0; fecSlot_ = 0; fecRing_ = 0; ccuAdd_ = 0; ccuChan_ = 0; lldChannel_ = 0; fedId_ = 0; fedCh_ = 0; apvId_ = 0; stripId_ = 0; 
+	noiseMean_ = 0.; noiseRMS_ =  0.; noiseSkewness_ = 0.; noiseKurtosis_ = 0.; 
+	fitGausMean_ = 0.; fitGausSigma_ = 0.;fitGausNormalization_ = 0.;
+	fitGausMeanError_ = 0.; fitGausSigmaError_ = 0.;fitGausNormalizationError_ = 0.;	  	  
+	fitChi2_ = 0.; fitChi2Probab_ = 0.; fitStatus_ = -1.; 
+	noiseIntegral3Sigma_ = 0.; noiseIntegral3SigmaFromFit_ = 0.; 
+	noiseIntegral4Sigma_ = 0.; noiseIntegral4SigmaFromFit_ = 0.; 
+	noiseIntegral5Sigma_ = 0.; noiseIntegral5SigmaFromFit_ = 0.; 
+	kSProbab_ = 0.; jBProbab_ = 0.;
+	kSValue_ = 0.; jBValue_ = 0.; 
+	aDValue_= 0.; aDProbab_ = 0.;
+	nBin_ = 0.; xMin_ = 0.; xMax_ = 0.;
+	
+	// basic info
+	detid_ = *detid;
+	fedKey_ = fedKey;
+	fecCrate_ = *fecCrate;
+	fecSlot_ = *fecSlot;
+	fecRing_ = *fecRing;
+	ccuAdd_  = *ccuAdd;
+	ccuChan_ = *ccuChan;
+	lldChannel_ = *lldChannel;
+	fedId_   = *fedId;
+	fedCh_   = *fedCh;
+	apvId_   = apvID;
+	stripId_ = stripID;
+	
+	// basic info of nioise distribution
+	noiseMean_ = histoNoiseStrip->GetMean();
+	noiseRMS_  = histoNoiseStrip->GetRMS();
+	noiseSkewness_ = histoNoiseStrip->GetSkewness();
+	noiseKurtosis_ = histoNoiseStrip->GetKurtosis();
+	float integral = histoNoiseStrip->Integral();	
+	noiseIntegral3Sigma_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+noiseRMS_*3),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-noiseRMS_*3)))/integral;
+	noiseIntegral4Sigma_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+noiseRMS_*4),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-noiseRMS_*4)))/integral;
+	noiseIntegral5Sigma_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+noiseRMS_*5),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-noiseRMS_*5)))/integral;
+	
+	// make a gaussian fit	  	
+	if(fitFunc == NULL or fitFunc == 0){
+	  fitFunc = new TF1 ("fitFunc","gaus(0)",histoNoise->GetXaxis()->GetXmin(),histoNoise->GetXaxis()->GetXmax());
+	}
+	fitFunc->SetRange(histoNoise->GetXaxis()->GetXmin(),histoNoise->GetXaxis()->GetXmax());
+	fitFunc->SetParameters(histoNoiseStrip->Integral(),noiseMean_,noiseRMS_);
+	result = histoNoiseStrip->Fit(fitFunc,"QSR");
 
-	  // to initialize branches
-	  detid_ = 0; fedKey_ = 0; fecCrate_ = 0; fecSlot_ = 0; fecRing_ = 0; ccuAdd_ = 0; ccuChan_ = 0; lldChannel_ = 0; fedId_ = 0; fedCh_ = 0; apvId_ = 0; stripId_ = 0; 
-	  noiseMean_ = 0.; noiseRMS_ =  0.; noiseSkewness_ = 0.; noiseKurtosis_ = 0.; 
-	  fitGausMean_ = 0.; fitGausSigma_ = 0.;fitGausNormalization_ = 0.;
-	  fitGausMeanError_ = 0.; fitGausSigmaError_ = 0.;fitGausNormalizationError_ = 0.;	  	  
-	  fitChi2_ = 0.; fitChi2Probab_ = 0.; fitStatus_ = -1.; 
-	  noiseIntegral3Sigma_ = 0.; noiseIntegral3SigmaFromFit_ = 0.; 
-	  noiseIntegral4Sigma_ = 0.; noiseIntegral4SigmaFromFit_ = 0.; 
-	  noiseIntegral5Sigma_ = 0.; noiseIntegral5SigmaFromFit_ = 0.; 
-	  kSProbab_ = 0.; jBProbab_ = 0.;
-	  kSValue_ = 0.; jBValue_ = 0.; 
-	  aDValue_= 0.; aDProbab_ = 0.;
-	  nBin_ = 0.; xMin_ = 0.; xMax_ = 0.;
-
-	  // basic info
-	  detid_ = *detid;
-	  fedKey_ = fedKey;
-	  fecCrate_ = *fecCrate;
-	  fecSlot_ = *fecSlot;
-	  fecRing_ = *fecRing;
-	  ccuAdd_  = *ccuAdd;
-	  ccuChan_ = *ccuChan;
-	  lldChannel_ = *lldChannel;
-	  fedId_   = *fedId;
-	  fedCh_   = *fedCh;
-	  apvId_   = apvID;
-	  stripId_ = stripID;
-
-	  // basic info of nioise distribution
-	  noiseMean_ = histoNoiseStrip.GetMean();
-	  noiseRMS_  = histoNoiseStrip.GetRMS();
-	  noiseSkewness_ = histoNoiseStrip.GetSkewness();
-	  noiseKurtosis_ = histoNoiseStrip.GetKurtosis();
-	  noiseIntegral3Sigma_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+noiseRMS_*3),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-noiseRMS_*3)))/histoNoiseStrip.Integral();
-	  noiseIntegral4Sigma_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+noiseRMS_*4),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-noiseRMS_*4)))/histoNoiseStrip.Integral();
-	  noiseIntegral5Sigma_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+noiseRMS_*5),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-noiseRMS_*5)))/histoNoiseStrip.Integral();
-	  // make a gaussian fit	  
-	  TF1 fitFunc ("fitFunc","gaus(0)",histoNoise->GetXaxis()->GetXmin(),histoNoise->GetXaxis()->GetXmax());
-	  fitFunc.SetParameters(histoNoiseStrip.Integral(),noiseMean_,noiseRMS_);
-	  TFitResultPtr result = histoNoiseStrip.Fit(&fitFunc,"QSR");
-	  if(result.Get()){
-
+	if(result.Get()){
 	    fitStatus_     = result->Status();
-	    fitGausNormalization_  = fitFunc.GetParameter(0);
-	    fitGausMean_   = fitFunc.GetParameter(1);
-	    fitGausSigma_  = fitFunc.GetParameter(2);
-	    fitGausNormalizationError_  = fitFunc.GetParError(0);
-	    fitGausMeanError_  = fitFunc.GetParError(1);
-	    fitGausSigmaError_ = fitFunc.GetParError(2);
+	    fitGausNormalization_  = fitFunc->GetParameter(0);
+	    fitGausMean_   = fitFunc->GetParameter(1);
+	    fitGausSigma_  = fitFunc->GetParameter(2);
+	    fitGausNormalizationError_  = fitFunc->GetParError(0);
+	    fitGausMeanError_  = fitFunc->GetParError(1);
+	    fitGausSigmaError_ = fitFunc->GetParError(2);
 	    fitChi2_           = result->Chi2();
 	    fitChi2Probab_     = result->Prob();
 
-	    noiseIntegral3SigmaFromFit_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+fitGausSigma_*3),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-fitGausSigma_*3)))/histoNoiseStrip.Integral();
-	    noiseIntegral4SigmaFromFit_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+fitGausSigma_*4),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-fitGausSigma_*4)))/histoNoiseStrip.Integral();
-	    noiseIntegral5SigmaFromFit_ = (histoNoiseStrip.Integral(histoNoiseStrip.FindBin(noiseMean_+fitGausSigma_*5),histoNoiseStrip.GetNbinsX()+1) + histoNoiseStrip.Integral(0,histoNoiseStrip.FindBin(noiseMean_-fitGausSigma_*5)))/histoNoiseStrip.Integral();
+	    noiseIntegral3SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+fitGausSigma_*3),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-fitGausSigma_*3)))/histoNoiseStrip->Integral();
+	    noiseIntegral4SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+fitGausSigma_*4),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-fitGausSigma_*4)))/histoNoiseStrip->Integral();
+	    noiseIntegral5SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+fitGausSigma_*5),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-fitGausSigma_*5)))/histoNoiseStrip->Integral();
 	    
-	    jBValue_   = (histoNoiseStrip.Integral()/6)*(noiseSkewness_*noiseSkewness_+(noiseKurtosis_*noiseKurtosis_)/4);	  
+	    jBValue_   = (histoNoiseStrip->Integral()/6)*(noiseSkewness_*noiseSkewness_+(noiseKurtosis_*noiseKurtosis_)/4);	  
 	    jBProbab_  = ROOT::Math::chisquared_cdf_c(jBValue_,2);
 
-	    TH1F* randomHisto = (TH1F*) histoNoiseStrip.Clone("randomHisto");
+	    if(randomHisto == 0 or randomHisto == NULL)
+	      randomHisto = (TH1F*) histoNoiseStrip->Clone("randomHisto");	    	    
 	    randomHisto->Reset();
-	    randomHisto->SetDirectory(0);
-	    if(histoNoiseStrip.Integral() != 0){	      
-	      randomHisto->FillRandom("fitFunc",histoNoiseStrip.Integral());	    
-	      kSValue_  = histoNoiseStrip.KolmogorovTest(randomHisto,"MN");
-	      kSProbab_ = histoNoiseStrip.KolmogorovTest(randomHisto,"N");	    
-	      aDValue_ = histoNoiseStrip.AndersonDarlingTest(randomHisto,"T");
-	      aDProbab_ = histoNoiseStrip.AndersonDarlingTest(randomHisto);
-	    }
-	    if(randomHisto) delete randomHisto;	    
-	  }
-	  else
-	    noFitResult++;
+	    randomHisto->SetDirectory(0);     
+	
+      
+	    if(integral != 0){	      
+	      if(generateRandomDistribution){
+		randomHisto->FillRandom("fitFunc",histoNoiseStrip->Integral());	    
+		kSValue_  = histoNoiseStrip->KolmogorovTest(randomHisto,"MN");
+		kSProbab_ = histoNoiseStrip->KolmogorovTest(randomHisto,"N");	    
+		aDValue_  = histoNoiseStrip->AndersonDarlingTest(randomHisto,"T");
+		aDProbab_ = histoNoiseStrip->AndersonDarlingTest(randomHisto);
+	      }
+	      else{
+		
+		randomHisto->Add(fitFunc);		
+		kSValue_  = histoNoiseStrip->KolmogorovTest(randomHisto,"MN"); 
+		kSProbab_ = histoNoiseStrip->KolmogorovTest(randomHisto,"N");
+		// AD test
+		ROOT::Fit::BinData data1;
+		ROOT::Fit::BinData data2;
+		ROOT::Fit::FillData(data1,histoNoiseStrip,0);
+		data2.Initialize(randomHisto->GetNbinsX()+1,1);
+		for(int ibin = 0; ibin < randomHisto->GetNbinsX(); ibin++){ 
+		  if(histoNoiseStrip->GetBinContent(ibin+1) != 0 or randomHisto->GetBinContent(ibin+1) >= 1)
+		    data2.Add(randomHisto->GetBinCenter(ibin+1),randomHisto->GetBinContent(ibin+1),randomHisto->GetBinError(ibin+1));
+		}
 	  
-	  if(not histoBranches){
-	    noiseDistribution_.clear();
-	    noiseDistributionError_.clear();
-	    outputTree->Branch("noiseDistribution","vector<float>",&noiseDistribution_);
-	    outputTree->Branch("noiseDistributionError","vector<float>",&noiseDistributionError_);
-	    histoBranches = true;
-	  }
-
-	  // set histogram
+		double probab;
+		double value;
+		ROOT::Math::GoFTest::AndersonDarling2SamplesTest(data1,data2,probab,value);
+		aDValue_ = value;
+		aDProbab_ = probab;
+	      }
+	    }
+	}
+	else
+	  noFitResult++;
+	
+	if(not histoBranches){
 	  noiseDistribution_.clear();
 	  noiseDistributionError_.clear();
-	  for(int iBin = 0; iBin < histoNoiseStrip.GetNbinsX(); iBin++){
-	    noiseDistribution_.push_back(histoNoiseStrip.GetBinContent(iBin+1));
-	    noiseDistributionError_.push_back(histoNoiseStrip.GetBinError(iBin+1));	      
-	  }
-	  
-	  nBin_ = histoNoiseStrip.GetNbinsX();
-	  xMin_ = histoNoise->GetXaxis()->GetBinLowEdge(1);
-	  xMax_ = histoNoise->GetXaxis()->GetBinLowEdge(histoNoise->GetNbinsX()+1);
-	  
-	  // fill all branches for each strip
-	  ouputTreeFile->cd();
-	  outputTree->Fill();
+	  outputTree->Branch("noiseDistribution","vector<float>",&noiseDistribution_);
+	  outputTree->Branch("noiseDistributionError","vector<float>",&noiseDistributionError_);
+	  histoBranches = true;
 	}
+    
+	// set histogram
+	noiseDistribution_.clear();
+	noiseDistributionError_.clear();
+	for(int iBin = 0; iBin < histoNoiseStrip->GetNbinsX(); iBin++){
+	  noiseDistribution_.push_back(histoNoiseStrip->GetBinContent(iBin+1));
+	  noiseDistributionError_.push_back(histoNoiseStrip->GetBinError(iBin+1));	      
+	}
+    
+	nBin_ = histoNoiseStrip->GetNbinsX();
+	xMin_ = histoNoise->GetXaxis()->GetBinLowEdge(1);
+	xMax_ = histoNoise->GetXaxis()->GetBinLowEdge(histoNoise->GetNbinsX()+1);
+
+	// fill all branches for each strip
+	ouputTreeFile->cd();
+	outputTree->Fill();
       }
-      else{
-	cerr<<"Problem with object name "<<objName<<" not coming from TH2 class --> check"<<endl;	
-      }
-      if(obj) delete obj;
     }
     inputFile->Close();
     std::cout<<std::endl;
     cout<<"No fit results found for "<<100*double(noFitResult)/iChannel<<endl;
   }
-
   outputTree->BuildIndex("detid");
   outputTree->Write(outputTree->GetName(),TObject::kOverwrite);
   ouputTreeFile->Close();

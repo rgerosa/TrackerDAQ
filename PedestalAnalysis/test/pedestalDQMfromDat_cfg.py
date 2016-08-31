@@ -1,6 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 import FWCore.ParameterSet.VarParsing as VarParsing
 import glob
+import os
 
 options = VarParsing.VarParsing ('analysis')
 
@@ -19,6 +20,12 @@ options.register ('partition',
 	VarParsing.VarParsing.multiplicity.singleton,
 	VarParsing.VarParsing.varType.string,
 	"Partition name"
+)
+
+options.register ('isOnEOS',False,
+	VarParsing.VarParsing.multiplicity.singleton,
+	VarParsing.VarParsing.varType.bool,
+	"Tell if the location of the files is on cern eos"
 )
 
 options.register ('inputPath',
@@ -62,16 +69,25 @@ process.source = cms.Source("PoolSource",
 	fileNames = cms.untracked.vstring()
 )
 
-fnames = glob.glob(options.inputPath+"/"+str(options.runNumber)+"/RAW*.root")
-for f in fnames :
-	process.source.fileNames.extend(cms.untracked.vstring('file:'+f))
-
+if not options.isOnEOS:
+	fnames = glob.glob(options.inputPath+"/"+str(options.runNumber)+"/RAW*.root")
+	for f in fnames :
+		process.source.fileNames.extend(cms.untracked.vstring('file:'+f))
+else:	
+	os.system('/afs/cern.ch/project/eos/installation/cms/bin/eos.select find '+options.inputPath+" -name \"*.root\" > file.tmp");
+	fnames = open('file.tmp','r');
+	for f in fnames :
+		f = f.replace('\n','');
+		if f == "" or not "root" in f: continue;
+		process.source.fileNames.extend(cms.untracked.vstring('root://eoscms.cern.ch//'+f))
+	os.system("rm file.tmp");
+	 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 process.load("EventFilter.SiStripRawToDigi.FedChannelDigis_cfi")
 process.FedChannelDigis.UnpackBadChannels = cms.bool(True)
 process.FedChannelDigis.DoAPVEmulatorCheck = cms.bool(True)
-process.FedChannelDigis.ProductLabel = cms.InputTag("rawDataCollector")
+process.FedChannelDigis.ProductLabel = cms.InputTag('rawDataCollector')
 process.FedChannelDigis.LegacyUnpacker = cms.bool(True)
 
 process.load("DQM.SiStripCommissioningSources.CommissioningHistos_cfi")
@@ -87,8 +103,8 @@ process.out = cms.OutputModule("PoolOutputModule",
 	outputCommands = cms.untracked.vstring(
 		'drop *',
 		'keep *_MEtoEDMConverter_*_*'
-        ),
-	fileName = cms.untracked.string('SiStripCommissioningSourceDQM_TP.root')
+		),
+	fileName = cms.untracked.string('SiStripCommissioningSourceDQM_'+options.partition+'_Run'+str(options.runNumber)+'.root')
 )
 process.e = cms.EndPath(process.MEtoEDMConverter*process.out)
 
@@ -166,6 +182,4 @@ if options.doFEDErr :
     process.siStripFEDMonitor.FedMaxEventSizevsTimeHistogramConfig.Enabled = False
 
     process.f = cms.Path(process.siStripFEDMonitor)
-
-
 
