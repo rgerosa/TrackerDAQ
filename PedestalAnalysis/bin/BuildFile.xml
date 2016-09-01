@@ -1,0 +1,5 @@
+<use name="CommonTools/TrackerMap"/>
+<use name="FWCore/ParameterSet"/>
+<use name="root"/>
+<flags CXXFLAGS="-g -Wall -fpermissive -std=c++0x -Wno-reorder"/>
+<bin   file="plotOnTrackerMap.cpp" name="plotOnTrackerMap"> </bin>
