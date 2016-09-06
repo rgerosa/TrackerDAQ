@@ -41,3 +41,4 @@ void checkOverlap(string file1, string file2){
   cout<<"Total number of strips "<<total<<" common det id and nstrip "<<common_detid_nstrip<<" "<<100*float(common_detid_nstrip)/total<<" % "<<endl;
 
 }
+

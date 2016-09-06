@@ -3,7 +3,6 @@
 
 #include "CMS_lumi.h"
 
-
 // reduce the number of channels by                                                                                                                                                                 
 static int  reductionFactor = 1;
 static bool generateRandomDistribution = false;
@@ -60,6 +59,7 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
   // output tree
   TFile* ouputTreeFile = new TFile((outputDIR+"/"+outputFileName).c_str(),"RECREATE");
   ouputTreeFile->cd();
+  ouputTreeFile->SetCompressionLevel(0);
   TTree* outputTree = new TTree("pedestalFullNoise","pedestalFullNoise");
   
   // branches
