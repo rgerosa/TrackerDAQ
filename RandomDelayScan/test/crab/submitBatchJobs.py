@@ -54,46 +54,96 @@ if __name__ == '__main__':
   
 
   listOfFiles = [];
-  os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select find "+options.inputDIR+" -name *.root > file.temp ")
-  file = open("file.temp","r")
-  for line in file:
-    if line == "" or line == "\n": continue;
-    if not ".root" in line: continue;
-    listOfFiles.append(line.replace("\n",""));
-        
-  os.system("rm file.temp");  
+  if options.isRawFile:
+    os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select find "+options.inputDIR+" -name \"*.root\" > file_delay"+str(options.delayStep)+".temp ")
+    file = open("file_delay"+str(options.delayStep)+".temp","r")
+    for line in file:
+      if line == "" or line == "\n": continue;
+      if not ".root" in line: continue;
+      listOfFiles.append(line.replace("\n",""));
+  elif options.isDatFile:
+    os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select find "+options.inputDIR+" -name \"*.dat\" > file_delay"+str(options.delayStep)+".temp ")
+    file = open("file_delay"+str(options.delayStep)+".temp","r")
+    for line in file:
+      if line == "" or line == "\n": continue;
+      if not ".dat" in line: continue;
+      listOfFiles.append(line.replace("\n",""));
+    
+  print "number of files found : ",len(listOfFiles);
+
+  os.system("rm file_delay"+str(options.delayStep)+".temp");  
   os.system("mkdir -p "+options.jobDIR);
   os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select  mkdir -p "+options.outputDIR);
 
   ## open each file and split according to eventsPerJob
   ifile = 0;
   njob  = 0;
-  for file in listOfFiles:
-    print file
-    tfile = ROOT.TFile.Open("root://eoscms.cern.ch//"+file);
-    tree  = tfile.Get("Events");
-    ## loop on events and save the starting one
-    starEvent = [];
-    for event in range(tree.GetEntries()):
-      if event % options.eventsPerJob == 0:
-        starEvent.append(event);
-    print starEvent
-    nJobs = len(starEvent);
-    for ijob in range(nJobs):
-      job = open('%s/job_file_%d_sub_%d.sh'%(currentDIR+"/"+options.jobDIR,ifile,ijob),'w')
-      job.write('cd '+currentDIR+"\n");
-      job.write('eval `scramv1 runtime -sh` \n');
-      job.write('cd - \n');
-      job.write('cp '+currentDIR+'/trackerdpganalysis_cfg.py ./ \n');
-      job.write('cp '+currentDIR+'/*delaystep*'+str(options.delayStep)+'*xml ./ \n');
-      job.write('cp '+currentDIR+'/'+options.jsonFile+' ./ \n');
-      job.write('cmsRun trackerdpganalysis_cfg.py inputFiles=root://eoscms.cern.ch//'+file+' delayStep='+str(options.delayStep)+' eventToSkip='+str(starEvent[ijob])+' maxEvents='+str(options.eventsPerJob)+' ouputFileName=trackerDPG_'+str(njob)+".root jsonFile="+options.jsonFile+" isRawFile="str(isRawFile)+" isDatFile="+str(isDatFile)+"\n");
-      job.write("xrdcp -f trackerDPG_"+str(njob)+".root root://eoscms.cern.ch//eos/cms/"+options.outputDIR+"\n");
-      os.system('chmod a+x %s/job_file_%d_sub_%d.sh'%(options.jobDIR,ifile,ijob))
-      if options.submit:
-        os.system('bsub -q %s -o %s/job_file_%d_sub_%d.log -e %s/job_file_%d_sub_%d.err %s/job_file_%d_sub_%d.sh'%(options.queque,currentDIR+"/"+options.jobDIR,ifile,ijob,currentDIR+"/"+options.jobDIR,ifile,ijob,currentDIR+"/"+options.jobDIR,ifile,ijob));
+  if options.isRawFile:
+    for filename in listOfFiles:
+      tfile = ROOT.TFile.Open("root://eoscms.cern.ch//"+filename);
+      tree  = tfile.Get("Events");
+      ## loop on events and save the starting one
+      starEvent = [];
+      for event in range(tree.GetEntries()):
+        if event % options.eventsPerJob == 0:
+          starEvent.append(event);
+      print starEvent
+      nJobs = len(starEvent);
+      for ijob in range(nJobs):
+        job = open('%s/job_file_%d_sub_%d.sh'%(currentDIR+"/"+options.jobDIR,ifile,ijob),'w')
+        job.write('cd '+currentDIR+"\n");
+        job.write('eval `scramv1 runtime -sh` \n');
+        job.write('cd - \n');
+        job.write('cp '+currentDIR+'/trackerdpganalysis_cfg.py ./ \n');
+        job.write('cp '+currentDIR+'/*delaystep*'+str(options.delayStep)+'*xml ./ \n');
+        job.write('cp '+currentDIR+'/'+options.jsonFile+' ./ \n');
+        job.write('cmsRun trackerdpganalysis_cfg.py inputFiles=root://eoscms.cern.ch//'+str(filename)+' delayStep='+str(options.delayStep)+' eventToSkip='+str(starEvent[ijob])+' maxEvents='+str(options.eventsPerJob)+' ouputFileName=trackerDPG_'+str(njob)+".root jsonFile="+options.jsonFile+" isRawFile="+str(isRawFile)+" isDatFile="+str(isDatFile)+"\n");
+        job.write("xrdcp -f trackerDPG_"+str(njob)+".root root://eoscms.cern.ch//eos/cms/"+options.outputDIR+"\n");
+        os.system('chmod a+x %s/job_file_%d_sub_%d.sh'%(options.jobDIR,ifile,ijob))
+        if options.submit:
+          os.system('bsub -q %s -o %s/job_file_%d_sub_%d.log -e %s/job_file_%d_sub_%d.err %s/job_file_%d_sub_%d.sh'%(options.queque,currentDIR+"/"+options.jobDIR,ifile,ijob,currentDIR+"/"+options.jobDIR,ifile,ijob,currentDIR+"/"+options.jobDIR,ifile,ijob));
 
-      njob = njob+1;
-    ifile = ifile + 1;
+        njob = njob+1;
+      ifile = ifile + 1;
+
+
+  if options.isDatFile:
+    for filename in listOfFiles:
+      print filename
+      os.system("cmsRun countEventsInDat_cfg.py inputFiles=root://eoscms.cern.ch//"+filename+" &> dump_delay"+str(options.delayStep)+".txt")
+      starEvent        = [];
+      totalEventInFile = 0;
+      file = open("dump_delay"+str(options.delayStep)+".txt","r")
+      for line in file:
+        if line == "" : continue;      
+        if "Number of events" in line:
+          totalEventInFile =  int(line.split("=")[1]);          
+          print"Total event in the file :",totalEventInFile
+
+      os.system("rm dump_delay"+str(options.delayStep)+".txt")
       
+      for ievent in range(totalEventInFile):
+        if ievent % options.eventsPerJob == 0:
+          starEvent.append(ievent)
+      
+      nJobs = len(starEvent);
+      print "Start event list: ",starEvent;
+      print "Number of jobs for this file: ",nJobs;
+      for ijob in range(nJobs):
+        job = open('%s/job_file_%d_sub_%d.sh'%(currentDIR+"/"+options.jobDIR,ifile,ijob),'w')
+        job.write('cd '+currentDIR+"\n");
+        job.write('eval `scramv1 runtime -sh` \n');
+        job.write('cd - \n');
+        job.write('cp '+currentDIR+'/trackerdpganalysis_cfg.py ./ \n');
+        job.write('cp '+currentDIR+'/*delaystep*'+str(options.delayStep)+'*xml ./ \n');
+        job.write('cp '+currentDIR+'/'+options.jsonFile+' ./ \n');
+        job.write('cmsRun trackerdpganalysis_cfg.py inputFiles=root://eoscms.cern.ch//'+str(filename)+' delayStep='+str(options.delayStep)+' eventToSkip='+str(starEvent[ijob])+' maxEvents='+str(options.eventsPerJob)+' ouputFileName=trackerDPG_'+str(njob)+".root jsonFile="+str(options.jsonFile)+" isRawFile="+str(isRawFile)+" isDatFile="+str(isDatFile)+"\n");
+        job.write("xrdcp -f trackerDPG_"+str(njob)+".root root://eoscms.cern.ch//eos/cms/"+options.outputDIR+"\n");
+        os.system('chmod a+x %s/job_file_%d_sub_%d.sh'%(options.jobDIR,ifile,ijob))
+        if options.submit:
+          os.system('bsub -q %s -o %s/job_file_%d_sub_%d.log -e %s/job_file_%d_sub_%d.err %s/job_file_%d_sub_%d.sh'%(options.queque,currentDIR+"/"+options.jobDIR,ifile,ijob,currentDIR+"/"+options.jobDIR,ifile,ijob,currentDIR+"/"+options.jobDIR,ifile,ijob));
+        job.close();
+
+        njob = njob+1;
+      ifile = ifile + 1;
 
