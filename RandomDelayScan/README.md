@@ -4,20 +4,19 @@
 
 ### CMSSW Setup:
 
-    cmsrel CMSSW_8_0_14 ;
-    cd CMSSW_8_0_14/src ;
-    cmsenv;
+    cmsrel CMSSW_9_2_0_patch2 ;
+    cd CMSSW_9_2_0_patch2/src ;
+    cmsenv;		      
     git-cms-init;
     git-cms-addpkg DPGAnalysis/SiStripTools/;
-    git clone git@github.com:rgerosa/TrackerDAQAnalysis.git;
+    git clone git@github.com:rgerosa/TrackerDAQAnalysis.git -b delayScan_90X;
     cp TrackerDAQAnalysis/RandomDelayScan/plugins/TrackerDpgAnalysis.cc DPGAnalysis/SiStripTools/plugins;
     cp TrackerDAQAnalysis/RandomDelayScan/test/trackerdpganalysis_cfg.py DPGAnalysis/SiStripTools/test;
-    cp TrackerDAQAnalysis/RandomDelayScan/test/crab/*xml DPGAnalysis/SiStripTools/test;
-    scramv1 b -j 8;
+    scramv1 b -j 8;					 
 
 ### To run the TrackerDPGAnalyzer locally:
 
-    cd  DPGAnalysis/SiStripTools/test/
+    cd  TrackerDAQAnalysis/RandomDelayScan/test/
     cmsRun trackerdpganalysis_cfg.py delayStep=<int corresponding to the delay xml chosen>
 
 Please: modify by hand the cfg to give an example file to run on

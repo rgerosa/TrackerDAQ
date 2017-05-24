@@ -58,7 +58,6 @@ if options.jsonFile != "":
 process.load('Configuration/StandardSequences/FrontierConditions_GlobalTag_cff')
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run2_data_GRun', '')
-#process.GlobalTag.globaltag = '80X_dataRun2_Express_v4'
 
 process.options = cms.untracked.PSet(
     wantSummary = cms.untracked.bool(True))
@@ -69,10 +68,9 @@ process.load('Configuration.StandardSequences.GeometryRecoDB_cff')
 process.load("Configuration.StandardSequences.MagneticField_AutoFromDBCurrent_cff")
 process.load("Geometry.CommonDetUnit.globalTrackingGeometryDB_cfi")
 process.load("TrackingTools.RecoGeometry.RecoGeometries_cff")
-
 process.load("RecoTracker.MeasurementDet.MeasurementTrackerEventProducer_cfi")
-## from Vincenzo Innocente: http://cmslxr.fnal.gov/lxr/source/RecoTracker/TrackProducer/test/TrackRefit.py?v=CMSSW_8_1_0_pre2
 
+## from Vincenzo Innocente: http://cmslxr.fnal.gov/lxr/source/RecoTracker/TrackProducer/test/TrackRefit.py?v=CMSSW_8_1_0_pre2
 ## re-fit only when starting from raw-reco of FEVT
 if not options.isRawFile and not options.isDatFile:
     process.load("RecoTracker.TrackProducer.TrackRefitter_cfi")
@@ -120,10 +118,10 @@ process.analysis = cms.EDAnalyzer('TrackerDpgAnalysis',
    keepVertices         = cms.untracked.bool(True),
    keepEvents           = cms.untracked.bool(True),
    DelayFileNames = cms.untracked.vstring(
-        "TI_27-JAN-2010_2_delaystep"+str(options.delayStep)+".xml",
-        "TO_30-JUN-2009_1_delaystep"+str(options.delayStep)+".xml",
-        "TP_09-JUN-2009_1_delaystep"+str(options.delayStep)+".xml",
-        "TM_09-JUN-2009_1_delaystep"+str(options.delayStep)+".xml",
+        "TI_27-JAN-2010_2_delaystep"+str(options.delayStep)+"_new.xml",
+        "TO_30-JUN-2009_1_delaystep"+str(options.delayStep)+"_new.xml",
+        "TP_09-JUN-2009_1_delaystep"+str(options.delayStep)+"_new.xml",
+        "TM_09-JUN-2009_1_delaystep"+str(options.delayStep)+"_new.xml",
    )
 )
 
