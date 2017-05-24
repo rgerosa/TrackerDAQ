@@ -540,7 +540,7 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
      delay_ = delay(*summary.product());
    else
      delay_ = 0.;
-
+   
    // -- Magnetic field
    ESHandle<MagneticField> MF;
    iSetup.get<IdealMagneticFieldRecord>().get(MF);
@@ -997,7 +997,7 @@ TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
    // cabling I (readout)
    iSetup.get<SiStripFedCablingRcd>().get( cabling_ );
    auto feds = cabling_->fedIds() ;
-   for(auto fedid = feds.begin();fedid<feds.end();++fedid) {
+   for(auto fedid = feds.begin();fedid<feds.end();++fedid) { 
      auto connections = cabling_->fedConnections(*fedid);
      for(auto conn=connections.begin();conn<connections.end();++conn) {
        // Fill the "old" map to be used for lookup during analysis
@@ -1018,7 +1018,7 @@ TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
          fedId_ = conn->fedId();
          fedCh_ = conn->fedCh();
          fiberLength_ = conn->fiberLength();
-	 delay_ = delayMap[dcuId_];
+	 delay_ = delayMap[detid_];
 	 const StripGeomDetUnit* sgdu = static_cast<const StripGeomDetUnit*>(tracker_->idToDet(detid_));
 	 Surface::GlobalPoint gp = sgdu->surface().toGlobal(LocalPoint(0,0));
 	 globalX_ = gp.x();
@@ -1029,7 +1029,7 @@ TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
        }
      }
    }
-   if(delayMap.size()) tmap.save(true, 0, 0, "delaymap.png");
+   if(delayMap.size()) tmap.save(true,-10,10,"delaymap.png",1400,800);
 
    // cabling II (DCU map)
    std::ifstream cablingFile(cablingFileName_.c_str());
@@ -1412,7 +1412,7 @@ float TrackerDpgAnalysis::delay(const SiStripEventSummary& summary) {
 
 std::map<uint32_t,float> TrackerDpgAnalysis::delay(const std::vector<std::string>& files) {
    // prepare output
-   uint32_t dcuid;
+   uint32_t detid;
    float delay;
    std::map<uint32_t,float> delayMap;
    //iterator over input files
@@ -1425,20 +1425,20 @@ std::map<uint32_t,float> TrackerDpgAnalysis::delay(const std::vector<std::string
        cablingFile.getline(buffer,1024);
        while(!cablingFile.eof()) {
          std::string line(buffer);
-         size_t pos = line.find("dcuid");
-         // one line containing dcuid
+         size_t pos = line.find("detid");
+         // one line containing detid
          if(pos != std::string::npos) {
-           // decode dcuid
-           std::string dcuids = line.substr(pos+7,line.find(" ",pos)-pos-8);
-           std::istringstream dcuidstr(dcuids);
-           dcuidstr >> std::hex >> dcuid;
+           // decode detid
+           std::string detids = line.substr(pos+7,line.find(" ",pos)-pos-8);
+           std::istringstream detidstr(detids);
+           detidstr >> std::hex >> detid;
            // decode delay
            pos = line.find("difpll");
            std::string diffs = line.substr(pos+8,line.find(" ",pos)-pos-9);
            std::istringstream diffstr(diffs);
            diffstr >> delay;
            // fill the map
-           delayMap[dcuid] = delay;
+           delayMap[detid] = delay;
          }
          // iterate
          cablingFile.getline(buffer,1024);

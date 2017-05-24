@@ -39,7 +39,7 @@ from Configuration.StandardSequences.Eras import eras
 process = cms.Process("clusterAnalysis",eras.Run2_2016)
 process.load("FWCore.MessageService.MessageLogger_cfi")
 process.MessageLogger.destinations = ['cout', 'cerr']
-process.MessageLogger.cerr.FwkReport.reportEvery = 1
+process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(options.maxEvents) )
 readFiles = cms.untracked.vstring(options.inputFiles)
