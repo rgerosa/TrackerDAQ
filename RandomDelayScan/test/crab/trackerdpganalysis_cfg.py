@@ -87,7 +87,6 @@ if not options.isRawFile and not options.isDatFile:
         )
     
     process.doAlldEdXEstimators += process.dedxMedian
-
     process.dedxTruncated40.tracks = "generalTracksFromRefit"
     process.dedxHarmonic2.tracks   = "generalTracksFromRefit"
     process.dedxMedian.tracks      = "generalTracksFromRefit"

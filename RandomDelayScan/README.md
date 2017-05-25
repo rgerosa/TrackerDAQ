@@ -28,6 +28,11 @@ Please: modify by hand the cfg to give an example file to run on
 
 Typically after that one andom delay run is taken, it appears as a part of Express stream dataset on DAS. Otherwise, you can wait untill it appears inside the prompt reco dataset, typically Minimum Bias prompt reco during the commissioning time.
 
+
+### To run lxbatch jobs: 
+
+    TrackerDAQAnalysis/RandomDelayScan/test/crab/submitBatchJobs.py 
+   
     
 ### Event Skim:
 

@@ -14,7 +14,6 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
   TFile* inputFile = TFile::Open(inputFileName.c_str());
 
   cout<<"### Load clusters tree "<<endl;
-  // cluster tree
   TTree* clustersTree = (TTree*) inputFile->FindObjectAny("clusters");
   if(clustersTree == 0 or clustersTree == NULL){
     cout<<"[skimTrees] no cluster tree found --> problem "<<endl;
@@ -64,7 +63,7 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
   string clusterSelection;
   if(isBOn){
     eventSelection   = "lowPixelProbabilityFraction[0] < 0.4 && lowPixelProbabilityFraction[0] >-0.5 && nVertices > 0 && ";
-    trackSelection   = "p > 1 && quality>2 && pterr/pt < 0.1 && pt>1 && dedx1 < 5 && ";
+    trackSelection   = "pt > 1 && quality>2 && pterr/pt < 0.2 && dedx1 < 5 && ";
     vertexSelection  = "";
     clusterSelection = "onTrack && angle > 0 && maxCharge < 254";
   }

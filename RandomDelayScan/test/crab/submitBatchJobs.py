@@ -54,14 +54,14 @@ if __name__ == '__main__':
   
 
   listOfFiles = [];
-  if options.isRawFile:
+  if not options.isDatFile:
     os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select find "+options.inputDIR+" -name \"*.root\" > file_delay"+str(options.delayStep)+".temp ")
     file = open("file_delay"+str(options.delayStep)+".temp","r")
     for line in file:
       if line == "" or line == "\n": continue;
       if not ".root" in line: continue;
       listOfFiles.append(line.replace("\n",""));
-  elif options.isDatFile:
+  else:
     os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select find "+options.inputDIR+" -name \"*.dat\" > file_delay"+str(options.delayStep)+".temp ")
     file = open("file_delay"+str(options.delayStep)+".temp","r")
     for line in file:
@@ -78,17 +78,19 @@ if __name__ == '__main__':
   ## open each file and split according to eventsPerJob
   ifile = 0;
   njob  = 0;
-  if options.isRawFile:
+  if not options.isDatFile:
     for filename in listOfFiles:
       tfile = ROOT.TFile.Open("root://eoscms.cern.ch//"+filename);
       tree  = tfile.Get("Events");
       ## loop on events and save the starting one
+      print"Total event in the file :",tree.GetEntries()
       starEvent = [];
       for event in range(tree.GetEntries()):
         if event % options.eventsPerJob == 0:
           starEvent.append(event);
-      print starEvent
       nJobs = len(starEvent);
+      print "Start event list: ",starEvent;
+      print "Number of jobs for this file: ",nJobs;
       for ijob in range(nJobs):
         job = open('%s/job_file_%d_sub_%d.sh'%(currentDIR+"/"+options.jobDIR,ifile,ijob),'w')
         job.write('cd '+currentDIR+"\n");
@@ -107,7 +109,7 @@ if __name__ == '__main__':
       ifile = ifile + 1;
 
 
-  if options.isDatFile:
+  else:
     for filename in listOfFiles:
       print filename
       os.system("cmsRun countEventsInDat_cfg.py inputFiles=root://eoscms.cern.ch//"+filename+" &> dump_delay"+str(options.delayStep)+".txt")
