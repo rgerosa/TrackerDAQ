@@ -43,7 +43,7 @@ static std::map<uint32_t,std::shared_ptr<TH1F> > TECPtlayersMPV;
 static std::map<uint32_t,std::shared_ptr<TH1F> > TECMTlayersMPV;
 static std::map<uint32_t,std::shared_ptr<TH1F> > TECMtlayersMPV;
 
-static TFile* outputFitFile = NULL;
+static TFile*   outputFitFile = NULL;
 static TCanvas* outputCanvasFit = NULL;
 
 int makeLandauGausFit(TH1F* histoToFit, TH1F* histoToFill, string subdetector, const float & delay, const string & observable, const string & outputDIR, const string & postfix = ""){
@@ -709,7 +709,6 @@ void RPlots(const std::shared_ptr<TTree> & tree,
   cout<<"create profiles  "<<endl;
 
   // create vectors  std::cout<<"Tree with nEntries "<<tree->GetEntries()<<std::endl;
-
   long int iEvent = 0;
   for( ; iEvent < tree->GetEntries()/reductionFactor; iEvent++){    
     tree->GetEntry(iEvent);
@@ -723,7 +722,7 @@ void RPlots(const std::shared_ptr<TTree> & tree,
     
     uint32_t subdetid    = int((detid-0x10000000)/0x2000000);
     float    R           = sqrt(clglobalX*clglobalX+clglobalY*clglobalY+clglobalZ*clglobalZ);
-    float value = 0;
+    float    value       = 0;
     if(observable == "maxCharge")
       value = obs*(clCorrectedSignalOverNoise)/(clSignalOverNoise);
     else
@@ -1111,16 +1110,18 @@ void RPlots(const std::shared_ptr<TTree> & tree,
 
 
 /// main function that run the analysis
-void delayValidation(string file0, 
-		     string file1 = "nocorrection.root", 
-		     string observable   = "maxCharge",
-		     bool plotPartitions = true, 
-		     bool plotLayer      = true, 
-		     bool plotSlices     = false, 
-		     string outputDIR    = "prompt"){
+void delayValidation(string file0,  // inputfile
+		     string file1 = "nocorrection.root",  // possible file with correction
+		     string observable   = "maxCharge",   // observable to be considered: maxCharge, S/N ..etc
+		     bool plotPartitions = true, // best delay setting in each partition 
+		     bool plotLayer      = true, // best delay setting per layer
+		     bool plotSlices     = false, // best delay setting per ring
+		     string outputDIR    = "prompt" // output directory name
+		     ){
 
   // prepare style and load macros
   setTDRStyle();
+  // not dump stat and fit info
   gStyle->SetOptStat(0);
   gStyle->SetOptFit(0);
   gROOT->SetBatch(kTRUE);
@@ -1143,15 +1144,19 @@ void delayValidation(string file0,
   // create the plots per layer
   if(plotLayer){
 
+    // run per layer analysis
     LayerPlots(clusters,readoutMap,delayCorrections,observable,outputDIR);
 
+    // canvas for layer one mean observable result
     std::shared_ptr<TCanvas> c1_mean = prepareCanvas("TIB_layers_mean",observable);
     plotAll(c1_mean,TIBlayersMean);
     c1_mean->Print(Form("%s/TIB_layers_mean.root",outputDIR.c_str()));
+    // canvas for layer one MPV observable result 
     std::shared_ptr<TCanvas> c1_mpv = prepareCanvas("TIB_layers_mpv",observable);
     plotAll(c1_mpv,TIBlayersMPV);
     c1_mpv->Print(Form("%s/TIB_layers_mpv.root",outputDIR.c_str()));
-
+    
+    /// Layer TID
     std::shared_ptr<TCanvas> c2_mean = prepareCanvas("TID_layers_mean",observable);
     plotAll(c2_mean,TIDlayersMean);
     c2_mean->Print(Form("%s/TID_layers_mean.root",outputDIR.c_str()));
@@ -1159,6 +1164,7 @@ void delayValidation(string file0,
     plotAll(c2_mpv,TIDlayersMPV);
     c2_mpv->Print(Form("%s/TID_layers_mpv.root",outputDIR.c_str()));
     
+    /// Layer TOB
     std::shared_ptr<TCanvas> c3_mean = prepareCanvas("TOB_layers_mean",observable);
     plotAll(c3_mean,TOBlayersMean);
     c3_mean->Print(Form("%s/TOB_layers_mean.root",outputDIR.c_str()));
@@ -1166,6 +1172,7 @@ void delayValidation(string file0,
     plotAll(c3_mpv,TOBlayersMPV);
     c3_mpv->Print(Form("%s/TOB_layers_mpv.root",outputDIR.c_str()));
 
+    /// Layer TECP thin sensors
     std::shared_ptr<TCanvas> c4_mean = prepareCanvas("TECPt_layers_mean",observable);
     plotAll(c4_mean,TECPtlayersMean);
     c4_mean->Print(Form("%s/TECPt_layers_mean.root",outputDIR.c_str()));
@@ -1173,6 +1180,7 @@ void delayValidation(string file0,
     plotAll(c4_mpv,TECPtlayersMPV);
     c4_mpv->Print(Form("%s/TECPt_layers_mpv.root",outputDIR.c_str()));
     
+    /// Layer TECP thick sensors
     std::shared_ptr<TCanvas> c5_mean = prepareCanvas("TECPT_layers_mean",observable);
     plotAll(c5_mean,TECPTlayersMean);
     c5_mean->Print(Form("%s/TECPT_layers_mean.root",outputDIR.c_str()));
@@ -1180,6 +1188,7 @@ void delayValidation(string file0,
     plotAll(c5_mpv,TECPTlayersMPV);
     c5_mpv->Print(Form("%s/TECPT_layers_mpv.root",outputDIR.c_str()));
 
+    /// Layer TECM thin sensors
     std::shared_ptr<TCanvas> c6_mean = prepareCanvas("TECMt_layers_mean",observable);
     plotAll(c6_mean,TECMtlayersMean);
     c6_mean->Print(Form("%s/TECMt_layers_mean.root",outputDIR.c_str()));
@@ -1187,6 +1196,7 @@ void delayValidation(string file0,
     plotAll(c6_mpv,TECMtlayersMPV);
     c6_mpv->Print(Form("%s/TECMt_layers_mpv.root",outputDIR.c_str()));
 
+    /// Layer TECM thick sensors
     std::shared_ptr<TCanvas> c7_mean = prepareCanvas("TECMT_layers_mean",observable);
     plotAll(c7_mean,TECMTlayersMean);
     c7_mean->Print(Form("%s/TECMT_layers_mean.root",outputDIR.c_str()));
@@ -1226,7 +1236,7 @@ void delayValidation(string file0,
     for(auto tec : TECMtlayersMPV)
       alllayersMPV.push_back(tec.second);
 
-    // store all the different plots
+    // store all the different plots --> plot maximum value for each layer    
     std::shared_ptr<TCanvas> c8_mean (new TCanvas("c_layers_mean","",800,650));  
     plotMaxima(c8_mean,alllayersMean,outputDIR,"layers_mean");
     std::shared_ptr<TCanvas> c8_mpv (new TCanvas("c_layers_mpv","",800,650));  
@@ -1260,62 +1270,60 @@ void delayValidation(string file0,
     
   }
 
+  // Per rings
   if(plotSlices){
 
+    // make the hisograms
     RPlots(clusters,readoutMap,delayCorrections,observable,outputDIR);
     
+    // Per ring in TIB
     std::shared_ptr<TCanvas> c1b_mean = prepareCanvas("TIB_distance_mean",observable);
     plotAll(c1b_mean,TIBrsMean);
     c1b_mean->Print(Form("%s/TIB_distance_mean.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c1b_mpv = prepareCanvas("TIB_distance_mpv",observable);
     plotAll(c1b_mpv,TIBrsMPV);
     c1b_mpv->Print(Form("%s/TIB_distance_mpv.root",outputDIR.c_str()));
 
+    // Per ring in TID
     std::shared_ptr<TCanvas> c2b_mean = prepareCanvas("TID_distance_mean",observable);
     plotAll(c2b_mean,TIDrsMean);
     c2b_mean->Print(Form("%s/TID_distance_mean.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c2b_mpv = prepareCanvas("TID_distance_mpv",observable);
     plotAll(c2b_mpv,TIDrsMPV);
     c2b_mpv->Print(Form("%s/TID_distance_mpv.root",outputDIR.c_str()));
 
+    // Per ring in TOB
     std::shared_ptr<TCanvas> c3b_mean = prepareCanvas("TOB_distance_mean",observable);
     plotAll(c3b_mean,TOBrsMean);
     c3b_mean->Print(Form("%s/TOB_distance_mean.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c3b_mpv = prepareCanvas("TOB_distance_mpv",observable);
     plotAll(c3b_mpv,TOBrsMPV);
     c3b_mpv->Print(Form("%s/TOB_distance_mpv.root",outputDIR.c_str()));
 
+    // Per ring in TECM
     std::shared_ptr<TCanvas> c4b_mean = prepareCanvas("TECMT_distance_mean",observable);
     plotAll(c4b_mean,TECMTrsMean);
     c4b_mean->Print(Form("%s/TECMT_distance_mean.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c4b_mpv = prepareCanvas("TECMT_distance_mpv",observable);
     plotAll(c4b_mpv,TECMTrsMPV);
     c4b_mpv->Print(Form("%s/TECMT_distance_mpv.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c5b_mean = prepareCanvas("TECMt_distance_mean",observable);
     plotAll(c5b_mean,TECMtrsMean);
     c5b_mean->Print(Form("%s/TECMt_distance_mean.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c5b_mpv = prepareCanvas("TECMt_distance_mpv",observable);
     plotAll(c5b_mpv,TECMtrsMPV);
     c5b_mpv->Print(Form("%s/TECMt_distance_mpv.root",outputDIR.c_str()));
 
+    // Per ring in TECM
     std::shared_ptr<TCanvas> c6b_mean = prepareCanvas("TECPT_distance_mean",observable);
     plotAll(c6b_mean,TECPTrsMean);
     c6b_mean->Print(Form("%s/TECPT_distance_mean.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c6b_mpv = prepareCanvas("TECPT_distance_mpv",observable);
     plotAll(c6b_mpv,TECPTrsMPV);
     c6b_mpv->Print(Form("%s/TECPT_distance_mpv.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c7b_mean = prepareCanvas("TECPt_distance_mean",observable);
     plotAll(c7b_mean,TECPtrsMean);
     c7b_mean->Print(Form("%s/TECPt_distance_mean.root",outputDIR.c_str()));
-
     std::shared_ptr<TCanvas> c7b_mpv = prepareCanvas("TECPt_distance_mpv",observable);
     plotAll(c7b_mpv,TECPtrsMPV);
     c7b_mpv->Print(Form("%s/TECPt_distance_mpv.root",outputDIR.c_str()));
@@ -1385,6 +1393,7 @@ void delayValidation(string file0,
     
   }
 
+  // Plot per partition 
   if(plotPartitions){
 
     //change ring definition to collapse all of them
@@ -1393,6 +1402,7 @@ void delayValidation(string file0,
     TOBRing.nDivision = 1;
     TECRing.nDivision = 1;
     
+    // cumulate all rings
     RPlots(clusters,readoutMap,delayCorrections,observable,outputDIR);
         
     // create the plots per partition

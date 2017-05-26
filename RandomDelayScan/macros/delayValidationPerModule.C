@@ -34,15 +34,15 @@ static bool isGaussian = true;
 // reduce the number of events by
 static int reductionFactor = 1;
 // min number of filled bins
-static int minFilledBin    = 11;
+static int minFilledBin    = 4;
 // max allowed delay
 static float peakBoundary  = 9.36;
 // min amplitude
 static float amplitudeMin  = 40.; 
 // min signficance delay/sigma_delay
-static float significance = 2;
+static float significance  = 2;
 // min delay to apply significance cut
-static float minDelayForSignificance = 3;
+static float minDelayForSignificance = 2;
 // max sigma allowed
 static float maxSigma = 20;
 // decide whether use histograms values or fitted ones
