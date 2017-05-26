@@ -40,9 +40,10 @@ if __name__ == '__main__':
    
    currentDIR = os.getcwd();
    ## generate binary file                                                                                                                                                      
-   ROOT.gROOT.ProcessLine(".L macros/skimTrees.C");
-
+   ROOT.gROOT.ProcessLine(".L macros/makeSkimTrees/skimTrees.C");
+   os.system("mkdir -p "+options.jobDIR)
    os.system("rm -r "+options.jobDIR);
+   os.system("mkdir -p "+options.jobDIR)
    
    ## make the file list ... typically all the files of a given run
    fileList = [];
@@ -62,7 +63,6 @@ if __name__ == '__main__':
    ## loop on the file list to create and submit jobs
    iFile = 1;
    for ifile in fileList:
-       os.system("mkdir -p "+options.jobDIR)
        os.system("mkdir -p "+options.jobDIR+"/"+"JOB_"+str(iFile));
 
        nameList = ifile.split("/");
