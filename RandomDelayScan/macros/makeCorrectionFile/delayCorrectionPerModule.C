@@ -32,6 +32,7 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   TTreeReaderValue<uint16_t> fecRing_i  (reader,"fecRing");
   TTreeReaderValue<uint16_t> ccuAdd_i    (reader,"ccuAdd");
   TTreeReaderValue<uint16_t> ccuChan_i    (reader,"ccuChan");
+  TTreeReaderValue<int>    notFound_i (reader,"notFound");
   TTreeReaderValue<float>    delayCorr_i (reader,"delayCorr");
   // to reconstruct the Gaussian fit vs delay for each module
   TTreeReaderValue<float>    measuredMeanAmplitude_i (reader,"measuredMeanAmplitude");
@@ -68,9 +69,11 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   while(reader.Next()){
     Detid = *Detid_i;
     fedCh = *fedCh_i;
-    delayCorr = std::round(*delayCorr_i*24./25.)*25/24;// delay in unitis of 24/25    
+    delayCorr = std::round(*delayCorr_i*24./25.)*25/24;// delay in unitis of 24/25        
     outputTree->Fill();
     
+    if(*notFound_i) continue;
+
     rawDelayMap[to_string(Detid)] = to_string(*delayCorr_i);
     delayMap[to_string(Detid)]    = to_string(delayCorr);
 
@@ -95,15 +98,20 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
 	    profile.SetBinError(iBin,amplitudeUnc->at(iBin));
 	  }
 	  profile.GetXaxis()->SetTitle("delay [ns]");
-	  //	  profile.GetYaxis()->SetTitle("Amplitude [ADC]");	
-	  profile.GetYaxis()->SetTitle("S/N");	
+	  if(observable == "maxCharge")
+	    profile.GetYaxis()->SetTitle("Amplitude [ADC]");	
+	  else
+	    profile.GetYaxis()->SetTitle("S/N");	
 	  profile.SetMarkerColor(kBlack);
 	  profile.SetMarkerSize(1);
 	  profile.SetMarkerStyle(20);
 	  profile.Draw("PE");
 	  fitfunc.SetLineColor(kRed);
-	  fitfunc.SetLineWidth(2);
+	  fitfunc.SetLineWidth(2);	  
 	  fitfunc.Draw("Lsame");
+	  profile.GetYaxis()->SetRangeUser(fitfunc.GetMinimum(limits.front(),limits.back())*0.75,fitfunc.GetMaximum(limits.front(),limits.back())*1.25);
+	  CMS_lumi(&canvas,"");
+	  
 	  canvas.SaveAs((outputDIR+"/plot_detid_"+to_string(Detid)+".png").c_str(),"png");
 	  canvas.SaveAs((outputDIR+"/plot_detid_"+to_string(Detid)+".pdf").c_str(),"pdf");
 	}
