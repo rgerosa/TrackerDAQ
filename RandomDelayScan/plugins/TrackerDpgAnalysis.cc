@@ -1018,7 +1018,7 @@ TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
          fedId_ = conn->fedId();
          fedCh_ = conn->fedCh();
          fiberLength_ = conn->fiberLength();
-	 delay_ = delayMap[detid_];
+	 delay_ = delayMap[dcuId_];
 	 const StripGeomDetUnit* sgdu = static_cast<const StripGeomDetUnit*>(tracker_->idToDet(detid_));
 	 Surface::GlobalPoint gp = sgdu->surface().toGlobal(LocalPoint(0,0));
 	 globalX_ = gp.x();
@@ -1412,7 +1412,7 @@ float TrackerDpgAnalysis::delay(const SiStripEventSummary& summary) {
 
 std::map<uint32_t,float> TrackerDpgAnalysis::delay(const std::vector<std::string>& files) {
    // prepare output
-   uint32_t detid;
+   uint32_t dcuid;
    float delay;
    std::map<uint32_t,float> delayMap;
    //iterator over input files
@@ -1425,20 +1425,21 @@ std::map<uint32_t,float> TrackerDpgAnalysis::delay(const std::vector<std::string
        cablingFile.getline(buffer,1024);
        while(!cablingFile.eof()) {
          std::string line(buffer);
-         size_t pos = line.find("detid");
-         // one line containing detid
+         size_t pos = line.find("dcuid");
+         // one line containing dcuid
          if(pos != std::string::npos) {
-           // decode detid
-           std::string detids = line.substr(pos+7,line.find(" ",pos)-pos-8);
-           std::istringstream detidstr(detids);
-           detidstr >> std::hex >> detid;
+           // decode dcuid
+           std::string dcuids = line.substr(pos+7,line.find(" ",pos)-pos-8);
+           std::istringstream dcuidstr(dcuids);
+           dcuidstr >> std::hex >> dcuid;
            // decode delay
            pos = line.find("difpll");
            std::string diffs = line.substr(pos+8,line.find(" ",pos)-pos-9);
            std::istringstream diffstr(diffs);
            diffstr >> delay;
+	   
            // fill the map
-           delayMap[detid] = delay;
+           delayMap[dcuid] = delay;
          }
          // iterate
          cablingFile.getline(buffer,1024);
