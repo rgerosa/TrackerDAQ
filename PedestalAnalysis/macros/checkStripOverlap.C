@@ -1,6 +1,7 @@
 #include <algorithm>
 #include "TrackerStrip.h"
 
+// check the overlap between two files giving a complate list of strip information
 void checkOverlap(string file1, string file2){
 
   vector<TrackerStrip> vec1;

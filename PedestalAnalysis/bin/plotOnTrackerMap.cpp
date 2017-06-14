@@ -1,7 +1,6 @@
-using namespace std;
 #include "CommonTools/TrackerMap/interface/TrackerMap.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
-
+using namespace std;
 
 int main(int argc, char**argv){
 

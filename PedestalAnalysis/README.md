@@ -24,5 +24,5 @@ Producing DQM files from Pedestal Runs:
 
 
 Producing Source file from:
-      cd TrackerDAQAnalysis/PedestalAnalysis/test;
-      cmsRun pedestalSourcefromDQM_cfg.py inputFiles=<list of files> inputPath=<input directory> 	  
+	  cd TrackerDAQAnalysis/PedestalAnalysis/test;
+	  cmsRun pedestalSourcefromDQM_cfg.py inputFiles=<list of files> inputPath=<input directory> 	  

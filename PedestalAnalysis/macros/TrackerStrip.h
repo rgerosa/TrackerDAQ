@@ -1,6 +1,8 @@
 #ifndef TrackerStrip_H
 #define TrackerStrip_H
 
+/// easy data-format to define a tracker strip
+
 class TrackerStrip {
 
  public:

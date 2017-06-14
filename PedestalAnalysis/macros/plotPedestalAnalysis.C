@@ -9,9 +9,9 @@ static float quantile4sigma = 0.000063342484;
 static float quantile5sigma = 0.000000573303;
 
 static vector<uint16_t> skipFEDid = {75};
-static int reductionFactor = 1;
+static int reductionFactor     = 1;
 static int nFilledBinSelection = 10;
-static float minimumRMS    = 1.5;
+static float minimumRMS        = 1.5;
 
 void storeOutputCanvas(TCanvas* canvas, TH1F * distribution, const TString & name, const string & outputDIR){
 
@@ -87,6 +87,8 @@ void storeOutputCanvas(TCanvas* canvas, TH1F * noiseDistribution,  TF1 * fitFunc
 
 }
 
+
+////////// main function
 
 void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubleGaussianChannels){
 
@@ -172,53 +174,55 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   tree->SetBranchAddress("xMin",&xMin);
   tree->SetBranchAddress("xMax",&xMax);
 
+  // file for bad identified strips using Anderson Darling test as benchmark
   TFile* badStripsNFilledBins = new TFile((outputDIR+"/badStripsNFilledBins.root").c_str(),"RECREATE");
-  TFile* badKsTest = new TFile((outputDIR+"/badStripsKsTest.root").c_str(),"RECREATE");
-  TFile* badjBTest = new TFile((outputDIR+"/badStripsjBTest.root").c_str(),"RECREATE");
+  TFile* badADTest   = new TFile((outputDIR+"/badStripsADTest.root").c_str(),"RECREATE");
+  TFile* badKSTest   = new TFile((outputDIR+"/badStripsKSTest.root").c_str(),"RECREATE");
+  TFile* badJBTest   = new TFile((outputDIR+"/badStripsJBTest.root").c_str(),"RECREATE");
   TFile* badChi2Test = new TFile((outputDIR+"/badStripsChi2Test.root").c_str(),"RECREATE");
-  TFile* badaDTest = new TFile((outputDIR+"/badStripsaDTest.root").c_str(),"RECREATE");
   TFile* badCombinedTest = new TFile((outputDIR+"/badStripsCombined.root").c_str(),"RECREATE");
-  TFile* badJBNotKSTest = new TFile((outputDIR+"/badStripsjBNotKS.root").c_str(),"RECREATE");
-  TFile* badaDNotKSandjBTest = new TFile((outputDIR+"/badStripaDNotKSNotjB.root").c_str(),"RECREATE");
-  TFile* badChi2NotKSandjBandaDTest = new TFile((outputDIR+"/badStripsChi2NotKsandjBandaD.root").c_str(),"RECREATE");
-
+  TFile* badJBNotADNotKSTest  = new TFile((outputDIR+"/badStripsJBNotADNotKS.root").c_str(),"RECREATE");
+  TFile* badKSNotADTest       = new TFile((outputDIR+"/badStripKSNotAD.root").c_str(),"RECREATE");
+  TFile* badChi2NotKSandJBandADTest = new TFile((outputDIR+"/badStripsChi2NotKSandJBandAD.root").c_str(),"RECREATE");
+  ////
   long int nbadNFilledBins = 0;
-  long int nbadKsTest = 0;
-  long int nbadjBTest = 0;
-  long int nbadaDTest = 0;
+  long int nbadKSTest = 0;
+  long int nbadJBTest = 0;
+  long int nbadADTest = 0;
   long int nbadChi2Test = 0;
   long int nbadCombinedTest = 0;
-  long int nbadJBNotKSTest = 0;
-  long int nbadaDNotKSandjBTest = 0;
-  long int nbadChi2NotKSandjBandaDTest = 0;
-
-  long int nbadDoublePeakDistance = 0;
-  long int nbadDoublePeakAshman = 0;
-  long int nbadDoublePeakChi2 = 0;
-  long int nbadDoublePeakAmplitude = 0;
-  long int nbadDoublePeakBimodality = 0;
-  long int nbadDoublePeakCombined = 0;
+  long int nbadJBNotADNotKSTest = 0;
+  long int nbadKSNotADTest  = 0;
+  long int nbadChi2NotKSandJBandADTest = 0;
 
   TCanvas* canvas = new TCanvas("canvas","canvas",600,650);
 
   map<uint32_t,uint32_t> moduleDenominator;
   map<uint32_t,uint32_t> moduleNumerator;
-  //  map<uint32_t,uint32_t> moduleNonEdgeNumerator;
-  //  map<uint32_t,uint32_t> moduleAPVEdgeNumerator;
-
   map<uint32_t,uint32_t> moduleNumeratorFilledBins;
   map<uint32_t,uint32_t> moduleNumeratorKS;
+  map<uint32_t,uint32_t> moduleNumeratorAD;
   map<uint32_t,uint32_t> moduleNumeratorJB;
+  map<uint32_t,uint32_t> moduleNumeratorChi2;
   map<uint32_t,uint32_t> moduleNumeratorDoublePeak;
-
+  
+  /////
   vector<TrackerStrip> badStrip;
 
-  TH1F* noiseHist = NULL;
-  TF1*  noiseFit  = NULL;
+  //////
+  long int nbadDoublePeakDistance   = 0;
+  long int nbadDoublePeakAshman     = 0;
+  long int nbadDoublePeakChi2       = 0;
+  long int nbadDoublePeakAmplitude  = 0;
+  long int nbadDoublePeakBimodality = 0;
+  long int nbadDoublePeakCombined   = 0;
+
+  TH1F* noiseHist      = NULL;
+  TF1*  noiseFit       = NULL;
   TF1*  noiseFit2Gaus  = NULL;
   TFitResultPtr result;
 
-  TH1F* chi2Distance       = new TH1F("chi2Distance","",100,0,1);
+  TH1F* chi2Distance    = new TH1F("chi2Distance","",100,0,1);
   chi2Distance->Sumw2();
   TH1F* peakDistance    = new TH1F("peakDistance","",100,0,3);
   peakDistance->Sumw2();
@@ -248,6 +252,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   TString name ;
   std::map<string,string> fitParam;
  
+  // loop on the pedestak analysis tree
   for(long int iChannel = 0; iChannel < tree->GetEntries(); iChannel++){
     tree->GetEntry(iChannel);
     cout.flush();
@@ -297,12 +302,14 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
     fitParam["aDProbab"] = sAD.str();
 
     moduleDenominator[detid] = moduleDenominator[detid]+1;
+
     if(noiseHist == NULL){
       noiseHist = new TH1F ("noiseHist","",nBin,xMin,xMax);
       noiseHist->Sumw2();
     }
     noiseHist->Reset();
-    
+
+    // create the noise distribution for the given strip
     for(int iBin = 0; iBin < noiseDistribution->size(); iBin++){
       noiseHist->SetBinContent(iBin+1,noiseDistribution->at(iBin));
       noiseHist->SetBinError(iBin+1,noiseDistributionError->at(iBin));
@@ -311,17 +318,20 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
     if(noiseFit == NULL)
       noiseFit = new TF1 ("noiseFist","gaus(0)",xMin,xMax);
     
+    // set the parameters from the old fits
     noiseFit->SetRange(xMin,xMax);
     noiseFit->SetParameters(fitGausNormalization,fitGausMean,fitGausSigma);
     noiseFit->SetParError(0,fitGausNormalizationError);
     noiseFit->SetParError(1,fitGausMeanError);
     noiseFit->SetParError(2,fitGausSigmaError);
 
+    // detect for each channel the number of non-null bins
     nonNullBins = 0;
     for(int iBin = 0; iBin < noiseHist->GetNbinsX(); iBin++){
       if(noiseHist->GetBinContent(iBin+1) != 0) nonNullBins++;
     }
 
+    /// skip channels with too few filled bins or a extremely small RMS
     if(nonNullBins < nFilledBinSelection or noiseHist->GetRMS() < minimumRMS){
       badStripsNFilledBins->cd();
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);
@@ -331,63 +341,76 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
     }
 
 
+    // probability for KS test smaller than a given CL
     if(kSProbab < quantile3sigma){
-      badKsTest->cd();
-      nbadKsTest++;
+      badKSTest->cd();
+      nbadKSTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
       moduleNumeratorKS[detid] += 1;
     }
     
+    // probability for the JB test to be smaller than a given CL
     if(jBProbab < quantile5sigma){
-      badjBTest->cd();
-      nbadjBTest++;
-      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
-    }
-
-    if(fitChi2Probab < quantile4sigma){
-      badChi2Test->cd();
-      nbadChi2Test++;
-      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
-    }
-
-    if(aDProbab < quantile3sigma){
-      badaDTest->cd();
-      nbadaDTest++;
-      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);
-    }
-    if(jBProbab < quantile5sigma and kSProbab > quantile3sigma and kSProbab < quantile){
-      badJBNotKSTest->cd();
-      nbadJBNotKSTest++;
+      badJBTest->cd();
+      nbadJBTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
       moduleNumeratorJB[detid] += 1;
     }
 
-    if(aDProbab < quantile3sigma and jBProbab > quantile5sigma and kSProbab > quantile3sigma and kSProbab < quantile){
-      badaDNotKSandjBTest->cd();
-      nbadaDNotKSandjBTest++;
+    // Chi2 probability
+    if(fitChi2Probab < quantile4sigma){
+      badChi2Test->cd();
+      nbadChi2Test++;
+      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
+      moduleNumeratorChi2[detid] += 1;
+    }
+
+    // Anderson Darling test
+    if(aDProbab < quantile3sigma){
+      badADTest->cd();
+      nbadADTest++;
+      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);
+    }
+
+    if(kSProbab < quantile3sigma and aDProbab > quantile3sigma and aDProbab < quantile){
+      badKSNotADTest->cd();
+      nbadKSNotADTest++;
+      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
+      moduleNumeratorKS[detid] += 1;
+    }
+
+    //// bad for JB but not for AD (AD sufficiently low [-CL,1sigma]
+    if(jBProbab < quantile5sigma and aDProbab > quantile3sigma and aDProbab < quantile and kSProbab > quantile3sigma){
+      badJBNotADNotKSTest->cd();
+      nbadJBNotADNotKSTest++;
+      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
+      moduleNumeratorAD[detid] += 1;
+    }
+
+
+    if(fitChi2Probab < quantile4sigma and jBProbab > quantile5sigma and aDProbab > quantile3sigma and aDProbab < quantile and kSProbab > quantile3sigma){
+      badChi2NotKSandJBandADTest->cd();
+      nbadChi2NotKSandJBandADTest++;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
     }
 
 
-    if(fitChi2Probab < quantile4sigma and jBProbab > quantile5sigma and kSProbab > quantile3sigma and kSProbab < quantile and aDProbab > quantile3sigma){
-      badChi2NotKSandjBandaDTest->cd();
-      nbadChi2NotKSandjBandaDTest++;
-      storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
-    }
+    //// combining all of them
+    if(aDProbab < quantile3sigma or 
+       (aDProbab > quantile3sigma and aDProbab < quantile and kSProbab < quantile3sigma) or 
+       (aDProbab > quantile3sigma and aDProbab < quantile and kSProbab > quantile3sigma and jBProbab < quantile5sigma)  or 
+       (aDProbab > quantile3sigma and aDProbab < quantile and kSProbab > quantile3sigma and jBProbab > quantile5sigma and fitChi2Probab < quantile4sigma)){
 
-    if(kSProbab < quantile3sigma or (kSProbab > quantile3sigma and kSProbab < quantile and jBProbab < quantile5sigma) or (kSProbab > quantile3sigma and kSProbab < quantile and jBProbab > quantile5sigma and aDProbab < quantile3sigma)  or (kSProbab > quantile3sigma and kSProbab < quantile and jBProbab > quantile5sigma and aDProbab > quantile3sigma and fitChi2Probab < quantile4sigma)){
       badCombinedTest->cd();
       nbadCombinedTest++;
       moduleNumerator[detid] = moduleNumerator[detid]+1;
-      //if(stripId == 1 or stripId == 128)
-      //  moduleAPVEdgeNumerator[detid] = moduleAPVEdgeNumerator[detid]+1;
-      //else
-      //  moduleNonEdgeNumerator[detid] = moduleNonEdgeNumerator[detid]+1;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
       name = Form("fecCrate%d_fecSlot%d_fecRing%d_ccuAdd%d_ccuCh%d_fedKey0x0000%s_lldCh%d_apv%d_strip%d",fecCrate,fecSlot,fecRing,ccuAdd,ccuChan,fedKeyStr.c_str(),lldChannel,apvId,stripId);      
+
+      // store it in order to dispaly on the tracker map
       badStrip.push_back(TrackerStrip(fecCrate,fecSlot,fecRing,ccuAdd,ccuChan,uint32_t(atoi(fedKeyStr.c_str())),lldChannel,apvId,stripId));
 
-      //try to identify double peaked channels
+      //try to identify double peaked channels between the ones marked as bad by the analysis 
       if(testDoubleGaussianChannels){
 	if(noiseFit2Gaus == NULL)
 	  // double gaussian in which the sigma is constrained to be the same --> identifing clear two peak channels
@@ -409,53 +432,59 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
 	ashman    = 0;
 	bimodality = 0;
 	amplitudeRatio = 0;
+	////////////
 	if(result.Get() or noiseHist->Integral() == 0){
 
-	  //compute the chi2 ratio
+	  //compute the chi2 ratio between 1 gauss and 2 gauss fits
 	  chi2Ratio = 0.5*ROOT::Math::chisquared_cdf_c((fitChi2/(result->Ndf()+3))/(result->Chi2()/result->Ndf()),1);
 	  chi2Distance->Fill(chi2Ratio);			
+	  //distance between peaks
 	  distance = fabs(noiseFit2Gaus->GetParameter(1)-noiseFit2Gaus->GetParameter(4))/(2*sqrt(noiseFit2Gaus->GetParameter(2)*noiseFit2Gaus->GetParameter(5)));
 	  peakDistance->Fill(distance);
+	  // ashman distance
 	  ashman   = TMath::Power(2,0.5)*abs(noiseFit2Gaus->GetParameter(1)-noiseFit2Gaus->GetParameter(4))/(sqrt(pow(noiseFit2Gaus->GetParameter(2),2)+pow(noiseFit2Gaus->GetParameter(5),2)));
 	  ashmanDistance->Fill(ashman);	 
+	  // bimodality coefficient
 	  if(nonNullBins > 3)
 	    bimodality = (noiseHist->GetSkewness()*noiseHist->GetSkewness()+1)/(noiseHist->GetKurtosis()+3*(nonNullBins-1)*(nonNullBins-1)/((nonNullBins-2)*(nonNullBins-3)));
 	  else
 	    bimodality = (noiseHist->GetSkewness()*noiseHist->GetSkewness()+1)/(noiseHist->GetKurtosis());
 	  bimodalityDistance->Fill(bimodality);	  
+	  // ratio of amplitudes
 	  amplitudeRatio = std::min(noiseFit2Gaus->GetParameter(0),noiseFit2Gaus->GetParameter(3))/std::max(noiseFit2Gaus->GetParameter(0),noiseFit2Gaus->GetParameter(3));
 	  amplitudeRatioDistance->Fill(amplitudeRatio);	
 	  
+	  ///// --> flagged by a simple distance 
 	  if(distance > 1){
 	    multiPeakChannelsDistance->cd();
 	    storeOutputCanvas(canvas,noiseHist,noiseFit,noiseFit2Gaus,name);
 	    nbadDoublePeakDistance++;
-	}
-	  
+	  }
+	  /// ashman coefficient
 	  if(ashman > 2){
 	    multiPeakChannelsAshman->cd();
 	    storeOutputCanvas(canvas,noiseHist,noiseFit,noiseFit2Gaus,name);
 	    nbadDoublePeakAshman++;
 	  }
-	  
+	  /// chi2 ratio
 	  if(chi2Ratio < 0.05){
 	    multiPeakChannelsChi2->cd();
 	    storeOutputCanvas(canvas,noiseHist,noiseFit,noiseFit2Gaus,name);
 	    nbadDoublePeakChi2++;
 	  }
-	  
+	  /// amplitude ratios
 	  if(amplitudeRatio > 0.85){
 	    multiPeakChannelsAmplitude->cd();
 	    storeOutputCanvas(canvas,noiseHist,noiseFit,noiseFit2Gaus,name);
 	    nbadDoublePeakAmplitude++;
-	}
-	  
+	  }
+	  //// bimodality
 	  if(bimodality > 0.55){
 	    multiPeakChannelsBimodality->cd();
 	    storeOutputCanvas(canvas,noiseHist,noiseFit,noiseFit2Gaus,name);
 	    nbadDoublePeakBimodality++;
 	  }
-	  
+	  /// combo of ashman and amplitude ratio
 	  if(ashman > 2 && amplitudeRatio > 0.85){
 	    multiPeakChannelsCombined->cd();
 	    storeOutputCanvas(canvas,noiseHist,noiseFit,noiseFit2Gaus,name);
@@ -466,8 +495,8 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
       }
     }
   }
-
-  // plot the chi2 and peak distance
+  
+  // plot the chi2 and peak distance --> distributions for all these channels tested as possible candidates for 2 peak strips
   if(testDoubleGaussianChannels){
     storeOutputCanvas(canvas,chi2Distance,"chi2TestStatistics",outputDIR);
     storeOutputCanvas(canvas,peakDistance,"peakDistanceTestStatistics",outputDIR);
@@ -477,15 +506,16 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   }
   
   std::cout<<std::endl;
+
   badStripsNFilledBins->Close();
-  badKsTest->Close();
-  badaDTest->Close();
-  badjBTest->Close();
+  badKSTest->Close();
+  badADTest->Close();
+  badJBTest->Close();
   badChi2Test->Close();
   badCombinedTest->Close();
-  badJBNotKSTest->Close();
-  badaDNotKSandjBTest->Close();
-  badChi2NotKSandjBandaDTest->Close();
+  badKSNotADTest->Close();
+  badJBNotADNotKSTest->Close();
+  badChi2NotKSandJBandADTest->Close();
   multiPeakChannelsCombined->Close();
   //////
   multiPeakChannelsChi2->Close();
@@ -495,13 +525,13 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   multiPeakChannelsBimodality->Close();
 
   cout<<"#### Bad Nfilled bins "<<nbadNFilledBins<<" --> "<<double(nbadNFilledBins)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
-  cout<<"#### Bad KS Test Channels "<<nbadKsTest<<" ---> "<<double(nbadKsTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
-  cout<<"#### Bad JB Test Channels "<<nbadjBTest<<" ---> "<<double(nbadjBTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
-  cout<<"#### Bad AD Test Channels "<<nbadaDTest<<" ---> "<<double(nbadaDTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
+  cout<<"#### Bad AD Test Channels "<<nbadADTest<<" ---> "<<double(nbadADTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
+  cout<<"#### Bad KS Test Channels "<<nbadKSTest<<" ---> "<<double(nbadKSTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
+  cout<<"#### Bad JB Test Channels "<<nbadJBTest<<" ---> "<<double(nbadJBTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
   cout<<"#### Bad Chi2 Test Channels "<<nbadChi2Test<<" ---> "<<double(nbadChi2Test)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
-  cout<<"#### Bad JB but not KS Test Channels "<<nbadJBNotKSTest<<" ---> "<<double(nbadJBNotKSTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
-  cout<<"#### Bad AD but not KS and not JB Test Channels "<<nbadaDNotKSandjBTest<<" ---> "<<double(nbadaDNotKSandjBTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
-  cout<<"#### Bad Chi2 but not KS and JB and AD Test Channels "<<nbadChi2NotKSandjBandaDTest<<" ---> "<<double(nbadChi2NotKSandjBandaDTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
+  cout<<"#### Bad KS but not AD Test Channels "<<nbadKSNotADTest<<" ---> "<<double(nbadKSNotADTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
+  cout<<"#### Bad JB but not KS and not AD Test Channels "<<nbadJBNotADNotKSTest<<" ---> "<<double(nbadJBNotADNotKSTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
+  cout<<"#### Bad Chi2 but not KS and JB and AD Test Channels "<<nbadChi2NotKSandJBandADTest<<" ---> "<<double(nbadChi2NotKSandJBandADTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
   cout<<"#### Bad Combined Test Channels "<<nbadCombinedTest<<" ---> "<<double(nbadCombinedTest)/(tree->GetEntries()/reductionFactor)<<" % "<<endl;
 
   if(testDoubleGaussianChannels){
@@ -555,8 +585,14 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   /// -------> 
   ofstream nchannelMapJB ((outputDIR+"/numberBadChannelsJB.txt").c_str());
   for(auto module : moduleNumeratorJB)
-    nchannelMapJB << module.first <<"  "<< moduleNumeratorKS[module.first] << "\n";
+    nchannelMapJB << module.first <<"  "<< moduleNumeratorJB[module.first] << "\n";
   nchannelMapJB.close();
+
+  /// -------> 
+  ofstream nchannelMapAD ((outputDIR+"/numberBadChannelsAD.txt").c_str());
+  for(auto module : moduleNumeratorAD)
+    nchannelMapAD << module.first <<"  "<< moduleNumeratorAD[module.first] << "\n";
+  nchannelMapAD.close();
 
   /// -------> 
   ofstream nchannelMapDoublePeak ((outputDIR+"/numberBadChannelsDoublePeak.txt").c_str());

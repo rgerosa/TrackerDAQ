@@ -1,3 +1,4 @@
+/// check overlap across two bad channel files in the format (detid - number of bad strips)
 void checkOverlap(string file1, string file2){
 
   map<string,string> map1; // det-id, number of strips

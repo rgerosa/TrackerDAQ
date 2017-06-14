@@ -1,4 +1,3 @@
-
 // Generate a file with a simple readout map from a DPG tree
 void generateCablingTree(string inputDPGTree, string ouputDIR, string ouputFileName){
   

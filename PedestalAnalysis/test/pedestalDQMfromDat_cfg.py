@@ -49,6 +49,27 @@ process = cms.Process("SISRC")
 process.load("DQM.SiStripCommon.MessageLogger_cfi")
 process.load("DQM.SiStripCommon.DaqMonitorROOTBackEnd_cfi")
 
+process.source = cms.Source("PoolSource",
+	fileNames = cms.untracked.vstring()
+)
+
+
+if not options.isOnEOS:
+	fnames = glob.glob(options.inputPath+"/"+str(options.runNumber)+"/USC*.root")	
+	for f in fnames :
+		process.source.fileNames.extend(cms.untracked.vstring('file:'+f))
+else:	
+	os.system('/afs/cern.ch/project/eos/installation/cms/bin/eos.select find '+options.inputPath+" -name \"*.root\" > file.tmp");
+	fnames = open('file.tmp','r');
+	for f in fnames :
+		f = f.replace('\n','');
+		if f == "" or not "root" in f: continue;
+		process.source.fileNames.extend(cms.untracked.vstring('root://eoscms.cern.ch//'+f))
+	os.system("rm file.tmp");
+
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
+
+
 process.load("OnlineDB.SiStripConfigDb.SiStripConfigDb_cfi")
 process.SiStripConfigDb.UsingDb = True                   
 process.SiStripConfigDb.ConfDb = 'user/password@account'
@@ -65,24 +86,6 @@ process.PedestalsFromConfigDb = cms.ESSource("SiStripPedestalsBuilderFromDb")
 process.NoiseFromConfigDb = cms.ESSource("SiStripNoiseBuilderFromDb")
 process.sistripconn = cms.ESProducer("SiStripConnectivity")
 
-process.source = cms.Source("PoolSource",
-	fileNames = cms.untracked.vstring()
-)
-
-if not options.isOnEOS:
-	fnames = glob.glob(options.inputPath+"/"+str(options.runNumber)+"/RAW*.root")
-	for f in fnames :
-		process.source.fileNames.extend(cms.untracked.vstring('file:'+f))
-else:	
-	os.system('/afs/cern.ch/project/eos/installation/cms/bin/eos.select find '+options.inputPath+" -name \"*.root\" > file.tmp");
-	fnames = open('file.tmp','r');
-	for f in fnames :
-		f = f.replace('\n','');
-		if f == "" or not "root" in f: continue;
-		process.source.fileNames.extend(cms.untracked.vstring('root://eoscms.cern.ch//'+f))
-	os.system("rm file.tmp");
-	 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 process.load("EventFilter.SiStripRawToDigi.FedChannelDigis_cfi")
 process.FedChannelDigis.UnpackBadChannels = cms.bool(True)
@@ -92,8 +95,8 @@ process.FedChannelDigis.LegacyUnpacker = cms.bool(True)
 
 process.load("DQM.SiStripCommissioningSources.CommissioningHistos_cfi")
 process.CommissioningHistos.CommissioningTask = 'PEDS_FULL_NOISE'
-process.CommissioningHistos.PedsFullNoiseParameters.NrEvToSkipAtStart = 20
-process.CommissioningHistos.PedsFullNoiseParameters.NrEvForPeds = 2000
+process.CommissioningHistos.PedsFullNoiseParameters.NrEvToSkipAtStart = 100
+process.CommissioningHistos.PedsFullNoiseParameters.NrEvForPeds = 2500
 process.CommissioningHistos.PedsFullNoiseParameters.FillNoiseProfile = True
 
 process.p = cms.Path(process.FedChannelDigis*process.CommissioningHistos)
