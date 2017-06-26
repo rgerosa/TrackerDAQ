@@ -46,10 +46,10 @@ void plotTestStatistics(string inputFileName,string outputDIR){
   inputFile->cd();
   TTree* tree = (TTree*) inputFile->Get("pedestalFullNoise");
 
-  TH1F* ksPValue       = new TH1F("ksPValue","Kolmogorov Smirnov",50,0,1);
-  TH1F* adPValue = new TH1F("adPValue","Anderson Darling",  50,0,1);
-  TH1F* jbPValue = new TH1F("jbPValue","Jacque Bera",50,0,1);
-  TH1F* chi2PValue = new TH1F("chi2PValue","#chi^{2} test",50,0,1);
+  TH1F* ksPValue       = new TH1F("ksPValue","Kolmogorov Smirnov",500,0,1);
+  TH1F* adPValue = new TH1F("adPValue","Anderson Darling",  500,0,1);
+  TH1F* jbPValue = new TH1F("jbPValue","Jacque Bera",500,0,1);
+  TH1F* chi2PValue = new TH1F("chi2PValue","#chi^{2} test",500,0,1);
 
   ksPValue->Sumw2();
   adPValue->Sumw2();
@@ -85,9 +85,9 @@ void plotTestStatistics(string inputFileName,string outputDIR){
 
   vector<TH1F*> vecHisto; 
   vecHisto.push_back(ksPValue);
-  vecHisto.push_back(adPValue);
-  vecHisto.push_back(jbPValue);
-  vecHisto.push_back(chi2PValue);
+  //  vecHisto.push_back(adPValue);
+  //  vecHisto.push_back(jbPValue);
+  //  vecHisto.push_back(chi2PValue);
 
   plotCanvas(canvas,vecHisto,outputDIR);
 }
