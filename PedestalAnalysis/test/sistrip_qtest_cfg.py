@@ -59,16 +59,16 @@ from Configuration.AlCa.GlobalTag_condDBv2 import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, options.globalTag, '')
 
 process.siStripQualityESProducer.ListOfRecordToMerge=cms.VPSet(
-    cms.PSet(record=cms.string('SiStripDetCablingRcd'),tag=cms.string(''))
-    , cms.PSet(record=cms.string('SiStripBadChannelRcd'),tag=cms.string(''))
-    , cms.PSet(record=cms.string('SiStripBadModuleRcd' ),tag=cms.string(''))
-    , cms.PSet(record=cms.string('SiStripBadFiberRcd'),tag=cms.string(''))
-    , cms.PSet(record=cms.string('SiStripBadStripRcd' ),tag=cms.string(''))
-    , cms.PSet(record=cms.string('RunInfoRcd'),tag=cms.string(''))
+    cms.PSet(record=cms.string('SiStripDetCablingRcd'),tag=cms.string('')),
+    cms.PSet(record=cms.string('RunInfoRcd'),tag=cms.string('')),
+    cms.PSet(record=cms.string('SiStripBadModuleRcd' ),tag=cms.string('')),
+    cms.PSet(record=cms.string('SiStripBadChannelRcd'),tag=cms.string('')),
+    cms.PSet(record=cms.string('SiStripBadFiberRcd'),tag=cms.string('')),
+    cms.PSet(record=cms.string('SiStripBadStripRcd' ),tag=cms.string(''))
 )
 
 process.siStripQualityESProducer.ReduceGranularity = cms.bool(False)
-process.siStripQualityESProducer.PrintDebugOutput = cms.bool(True)
+process.siStripQualityESProducer.PrintDebugOutput = cms.bool(False)
 process.siStripQualityESProducer.UseEmptyRunInfo = cms.bool(False)
 
 #### Add these lines to produce a tracker map
@@ -81,7 +81,8 @@ process.stat = cms.EDAnalyzer("SiStripQualityStatisticsSpecial",
                               TkMapFileName = cms.untracked.string('TkMapBadComponents_offline.png'),
                               SaveTkHistoMap = cms.untracked.bool(True),                              
                               dataLabel = cms.untracked.string(''),
-                              PrintStripLevelInfo = cms.untracked.bool(True)
+                              PrintStripLevelInfo = cms.untracked.bool(True),
+                              fedToMask = cms.vint32(75),
                               )
 
 process.out = cms.OutputModule("AsciiOutputModule")

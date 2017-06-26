@@ -40,7 +40,9 @@ class SiStripQualityStatisticsSpecial : public edm::EDAnalyzer {
   edm::FileInPath fp_;
   bool saveTkHistoMap_; 
   bool printStripInfo_;
- //Global Info
+  std::vector<int> fedToMask_;
+
+  //Global Info
   int NTkBadComponent[4]; //k: 0=BadModule, 1=BadFiber, 2=BadApv, 3=BadStrips
   int NBadComponent[4][19][4];  
   //legend: NBadComponent[i][j][k]= SubSystem i, layer/disk/wheel j, BadModule/Fiber/Apv k

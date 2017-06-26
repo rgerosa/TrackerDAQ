@@ -17,6 +17,8 @@
 //
 #include "CalibTracker/Records/interface/SiStripQualityRcd.h"
 #include "TrackerDAQAnalysis/PedestalAnalysis/plugins/SiStripQualityStatistics.h"
+#include "CondFormats/SiStripObjects/interface/SiStripDetVOff.h"
+#include "CondFormats/DataRecord/interface/SiStripCondDataRecords.h"
 
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
@@ -34,6 +36,7 @@ SiStripQualityStatisticsSpecial::SiStripQualityStatisticsSpecial( const edm::Par
   fp_(iConfig.getUntrackedParameter<edm::FileInPath>("file",edm::FileInPath("CalibTracker/SiStripCommon/data/SiStripDetInfo.dat"))),
   saveTkHistoMap_(iConfig.getUntrackedParameter<bool>("SaveTkHistoMap",true)),
   printStripInfo_(iConfig.getUntrackedParameter<bool>("PrintStripLevelInfo",false)),
+  fedToMask_(iConfig.existsAs<std::vector<int> >("fedToMask") ? iConfig.getParameter<std::vector<int> >("fedToMask") : std::vector<int>()),
   tkMap(0),tkMapFullIOVs(0)
 {  
   reader = new SiStripDetInfoFileReader(fp_.fullPath());
@@ -68,19 +71,34 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
   iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
   const TrackerTopology* const tTopo = tTopoHandle.product();
 
+  // strip quality RCD
   unsigned long long cacheID = iSetup.get<SiStripQualityRcd>().cacheIdentifier();
-
-  std::stringstream ss;
-  std::stringstream ss_detail;
-
   if (m_cacheID_ == cacheID) 
     return;
-
   m_cacheID_ = cacheID; 
 
+  // Fed cabling Rcd
+  edm::ESHandle<SiStripFedCabling> cabling;
+  iSetup.get<SiStripFedCablingRcd>().get(cabling);
+  auto feds = cabling->fedIds() ;
+  std::vector<uint32_t> connectedModules;
+  for(auto fedid = feds.begin();fedid<feds.end();++fedid) {
+    auto connections = cabling->fedConnections(*fedid);
+    if(std::find(fedToMask_.begin(),fedToMask_.end(),*fedid) != fedToMask_.end()) continue;
+    for(auto conn=connections.begin();conn<connections.end();++conn) {
+      if(conn->isConnected()) 
+	connectedModules.push_back(conn->detId());
+    }
+  }
+  
+  
+  // Bad component map
   // retrive the quality object
   edm::ESHandle<SiStripQuality> SiStripQuality_;
   iSetup.get<SiStripQualityRcd>().get(dataLabel_,SiStripQuality_);
+
+  std::stringstream ss;
+  std::stringstream ss_detail;
     
   for(int i=0;i<4;++i){
     NTkBadComponent[i]=0;
@@ -175,6 +193,11 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
     
     
     SiStripQuality::Range sqrange = SiStripQuality::Range( SiStripQuality_->getDataVectorBegin()+rp->ibegin , SiStripQuality_->getDataVectorBegin()+rp->iend );
+
+    if (printStripInfo_){
+      if(std::find(connectedModules.begin(),connectedModules.end(),detid) == connectedModules.end()) continue;
+    }
+    
         
     percentage=0;   
     for(int it=0;it<sqrange.second-sqrange.first;it++){
@@ -184,7 +207,9 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
 	int lldChan =  int(i/256)+1; 
 	int apvId   =  int((i-(lldChan-1)*256)/128)+1;
 	int stripId =  int((i-(lldChan-1)*256-(apvId-1)*128));
-	if (printStripInfo_) ss_detail << detid<<" "<<lldChan<<" "<<apvId<<" "<<stripId<<"\n";  
+	if (printStripInfo_){
+	  ss_detail << detid<<" "<<lldChan<<" "<<apvId<<" "<<stripId<<"\n";  
+	}
       }
       NTkBadComponent[3]+=range;
       NBadComponent[subdet][0][3]+=range;
