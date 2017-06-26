@@ -77,10 +77,10 @@ process.TkDetMap = cms.Service("TkDetMap")
 process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
 ####
 
-process.stat = cms.EDAnalyzer("SiStripQualityStatistics",
+process.stat = cms.EDAnalyzer("SiStripQualityStatisticsSpecial",
                               TkMapFileName = cms.untracked.string('TkMapBadComponents_offline.png'),
                               SaveTkHistoMap = cms.untracked.bool(True),                              
-                              dataLabel = cms.untracked.string('test'),
+                              dataLabel = cms.untracked.string(''),
                               PrintStripLevelInfo = cms.untracked.bool(True)
                               )
 

@@ -1,9 +1,9 @@
 // -*- C++ -*-
 //
-// Package:    SiStripQualityStatistics
-// Class:      SiStripQualityStatistics
+// Package:    SiStripQualityStatisticsSpecial
+// Class:      SiStripQualityStatisticsSpecial
 // 
-/**\class SiStripQualityStatistics SiStripQualityStatistics.h CalibTracker/SiStripQuality/plugins/SiStripQualityStatistics.cc
+/**\class SiStripQualityStatisticsSpecial SiStripQualityStatisticsSpecial.h CalibTracker/SiStripQuality/plugins/SiStripQualityStatisticsSpecial.cc
 
  Description: <one line class summary>
 
@@ -27,7 +27,7 @@
 #include <sys/time.h>
 
 
-SiStripQualityStatistics::SiStripQualityStatistics( const edm::ParameterSet& iConfig ):
+SiStripQualityStatisticsSpecial::SiStripQualityStatisticsSpecial( const edm::ParameterSet& iConfig ):
   m_cacheID_(0), 
   dataLabel_(iConfig.getUntrackedParameter<std::string>("dataLabel","")),
   TkMapFileName_(iConfig.getUntrackedParameter<std::string>("TkMapFileName","")),
@@ -45,7 +45,7 @@ SiStripQualityStatistics::SiStripQualityStatistics( const edm::ParameterSet& iCo
   }
 }
 
-void SiStripQualityStatistics::endJob(){
+void SiStripQualityStatisticsSpecial::endJob(){
 
   std::string filename=TkMapFileName_;
   if (filename!=""){
@@ -60,7 +60,7 @@ void SiStripQualityStatistics::endJob(){
   }
 }
 
-void SiStripQualityStatistics::analyze( const edm::Event& e, const edm::EventSetup& iSetup){
+void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::EventSetup& iSetup){
   //Retrieve tracker topology from geometry
   edm::ESHandle<TrackerTopology> tTopoHandle;
   iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
@@ -101,7 +101,7 @@ void SiStripQualityStatistics::analyze( const edm::Event& e, const edm::EventSet
     if (SiStripQuality_->IsModuleUsable((*idet)))
       tkMap->fillc(*idet,0x00ff00);
   }
-  LogDebug("SiStripQualityStatistics") << ss.str() << std::endl;
+  LogDebug("SiStripQualityStatisticsSpecial") << ss.str() << std::endl;
 
 
   std::vector<SiStripQuality::BadComponent> BC = SiStripQuality_->getBadComponentList();
@@ -213,7 +213,7 @@ void SiStripQualityStatistics::analyze( const edm::Event& e, const edm::EventSet
     if(percentage!=0)
       percentage/=128.*reader->getNumberOfApvsAndStripLength(detid).first;
     if(percentage>1)
-      edm::LogError("SiStripQualityStatistics") <<  "PROBLEM detid " << detid << " value " << percentage<< std::endl;
+      edm::LogError("SiStripQualityStatisticsSpecial") <<  "PROBLEM detid " << detid << " value " << percentage<< std::endl;
     
     //------- Global Statistics on percentage of bad components along the IOVs ------//
     tkMapFullIOVs->fill(detid,percentage);
@@ -273,9 +273,9 @@ void SiStripQualityStatistics::analyze( const edm::Event& e, const edm::EventSet
     ss << "\nTEC- Disk " << i-9 << " :" << ssV[3][i].str();
 
 
-  edm::LogInfo("SiStripQualityStatistics") << ss.str() << std::endl;
+  edm::LogInfo("SiStripQualityStatisticsSpecial") << ss.str() << std::endl;
 
-  if (printStripInfo_) edm::LogInfo("SiStripQualityStatistics") << ss_detail.str() << std::endl;
+  if (printStripInfo_) edm::LogInfo("SiStripQualityStatisticsSpecial") << ss_detail.str() << std::endl;
 
   std::string filetype=TkMapFileName_,filename=TkMapFileName_;
   std::stringstream sRun; sRun.str("");
@@ -290,7 +290,7 @@ void SiStripQualityStatistics::analyze( const edm::Event& e, const edm::EventSet
 }
 
 
-void SiStripQualityStatistics::SetBadComponents(int i, int component,SiStripQuality::BadComponent& BC){
+void SiStripQualityStatisticsSpecial::SetBadComponents(int i, int component,SiStripQuality::BadComponent& BC){
 
   int napv=reader->getNumberOfApvsAndStripLength(BC.detid).first;
 
@@ -334,3 +334,7 @@ void SiStripQualityStatistics::SetBadComponents(int i, int component,SiStripQual
     tkMap->fillc(BC.detid,0x0);
   }
 }
+
+#include "FWCore/Framework/interface/MakerMacros.h"
+
+DEFINE_FWK_MODULE(SiStripQualityStatisticsSpecial);

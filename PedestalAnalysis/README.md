@@ -2,8 +2,8 @@ Pedestal Analysis
 
 CMSSW Setup:
 
-      cmsrel CMSSW_8_0_14 ;
-      cd CMSSW_8_0_14/src ;
+      cmsrel CMSSW_9_2_4 ;
+      cd CMSSW_9_2_4/src ;
       cmsenv;
       git-cms-init;
       git-cms-addpkg DataFormats/SiStripCommon/;
@@ -14,7 +14,7 @@ CMSSW Setup:
       git cms-addpkg DQM/SiStripCommissioningDbClients;
       git cms-addpkg DQM/SiStripCommissioningSources;	 
       git cms-addpkg DQM/SiStripCommissioningSummary;
-      git clone git@github.com:rgerosa/TrackerDAQAnalysis.git;
+      git clone git@github.com:rgerosa/TrackerDAQAnalysis.git -b Pedestal_Analysis_2017;
       scramv1 b -j 8;
 
 Producing DQM files from Pedestal Runs:

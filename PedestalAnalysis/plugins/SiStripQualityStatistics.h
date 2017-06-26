@@ -1,5 +1,5 @@
-#ifndef SiStripQualityStatistics_H
-#define SiStripQualityStatistics_H
+#ifndef SiStripQualityStatisticsSpecial_H
+#define SiStripQualityStatisticsSpecial_H
 
 // system include files
 //#include <memory>
@@ -21,11 +21,11 @@
 
 #include <sstream>
 
-class SiStripQualityStatistics : public edm::EDAnalyzer {
+class SiStripQualityStatisticsSpecial : public edm::EDAnalyzer {
 
  public:
-  explicit SiStripQualityStatistics( const edm::ParameterSet& );
-  ~SiStripQualityStatistics(){};
+  explicit SiStripQualityStatisticsSpecial( const edm::ParameterSet& );
+  ~SiStripQualityStatisticsSpecial(){};
   
   void analyze( const edm::Event&, const edm::EventSetup& );
   void endJob();
