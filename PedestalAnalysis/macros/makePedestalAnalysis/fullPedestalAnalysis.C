@@ -72,7 +72,8 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
   float    noiseIntegral5Sigma_, noiseIntegral5SigmaFromFit_;
   float    kSValue_, kSProbab_, kSProbabNoNorm_, jBValue_, jBProbab_, aDValue_, aDProbab_;
   vector<float> noiseDistribution_, noiseDistributionError_;
-  float xMin_, xMax_, nBin_ ;
+  float    pedestal_, noise_;
+  float    xMin_, xMax_, nBin_ ;
 
   outputTree->Branch("detid",&detid_,"detid/i");
   outputTree->Branch("fedKey",&fedKey_,"fedKey/i");
@@ -117,6 +118,8 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
   outputTree->Branch("xMin",&xMin_,"xMin/F");
   outputTree->Branch("xMax",&xMax_,"xMax/F");
   outputTree->Branch("nBin",&nBin_,"nBin/F");
+  outputTree->Branch("pedestal",&pedestal_,"pedestal/F");
+  outputTree->Branch("noise",&noise_,"noise/F");
 
   bool histoBranches = false;
 
@@ -135,6 +138,8 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
     // take into account that the DQM file structure for strips is always the same --> use cabling map to browse the histograms
     reader.SetEntry(0);
     TH2* histoNoise   = NULL;
+    TProfile* histoPeds = NULL;
+    TProfile* histoNoiseMean = NULL;
     long int iChannel = 0;
     long int nStrips = 0;
     long int noFitResult = 0;
@@ -161,10 +166,19 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
 
       inputFile->GetObject(objName.Data(),histoNoise);
 
-      if(histoNoise == NULL or histoNoise == 0){
+      // take pedestal distribution
+      objName.ReplaceAll("Noise2D","Pedestals");
+      inputFile->GetObject(objName.Data(),histoPeds);
+      objName.ReplaceAll("Pedestals","NoiseProfile");
+      inputFile->GetObject(objName.Data(),histoNoiseMean);
+
+      if(histoNoise == NULL or histoNoise == 0 or histoPeds == NULL or histoPeds == 0 or histoNoise == NULL or histoNoise == 0){
 	nullHistos++;
 	continue;
       }
+
+      if(histoNoise->GetNbinsY() != histoPeds->GetNbinsX() or histoNoise->GetNbinsY() != histoNoiseMean->GetNbinsX())
+	cout<<"Problem: Profile and 2D histogram does not have the same number of bins"<<endl;
 
       // extract single strip noise histogram --> loop on the y-axis
       uint16_t apvID = 0;
@@ -207,7 +221,9 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
 	kSValue_  = 0.; jBValue_  = 0.; 
 	aDValue_  = 0.; aDProbab_ = 0.;	
 	nBin_   = 0.; xMin_ = 0.; xMax_ = 0.;
+	pedestal_ = 0 ;  noise_ = 0;
 	isNull_ = 0;
+
 	// basic info
 	detid_    = *detid;
 	fedKey_   = fedKey;
@@ -221,6 +237,10 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
 	fedCh_    = *fedCh;
 	apvId_    = apvID;
 	stripId_  = stripID;
+
+	// pedestals and noise
+	pedestal_ = histoPeds->GetBinContent(iBinY+1);
+	noise_    = histoNoiseMean->GetBinContent(iBinY+1);
 
 	// skip strips with no measurement
 	if(histoNoiseStrip->Integral() == 0){
@@ -339,8 +359,8 @@ void fullPedestalAnalysis(string inputDIR, string outputDIR, string inputCabling
     }
     inputFile->Close();
     std::cout<<std::endl;
-    cout<<"Null histo pointers:     "<<nullHistos<<" total strips "<<nStrips<<" fraction "<<100*double(nullHistos)/double(nStrips)<<"%"endl;
-    cout<<"Strips with empty source "<<stripsNoIntegral<<" total strips "<<nStrips<<" fraction "<<100*double(stripsNoIntegral)/double(nStrips)<<"%"endl;
+    cout<<"Null histo pointers:     "<<nullHistos<<" total strips "<<nStrips<<" fraction "<<100*double(nullHistos)/double(nStrips)<<"%"<<endl;
+    cout<<"Strips with empty source "<<stripsNoIntegral<<" total strips "<<nStrips<<" fraction "<<100*double(stripsNoIntegral)/double(nStrips)<<"%"<<endl;
     cout<<"No fit results found for "<<noFitResult<<" total strips "<<nStrips<<" fraction "<<100*double(noFitResult)/double(nStrips)<<"%"<<endl;
   }
     
