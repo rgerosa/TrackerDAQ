@@ -11,7 +11,7 @@ static float quantile5sigma = 0.000000573303;
 
 /// skip particular FEDs
 static vector<uint16_t> skipFEDid = {75};
-static int reductionFactor        = 1;
+static int reductionFactor        = 100;
 
 // minimum RMS to be considered reasonable
 static float minimumRMS        = 1.5;
@@ -30,7 +30,11 @@ class noiseStrip {
 
 public:
 
-  noiseStrip(){};
+  noiseStrip(){
+    nstrip = 0;
+    noiseVal = 0;
+    isDivided = false;
+  };
   ~noiseStrip(){};
 
   int nstrip;
@@ -196,7 +200,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
 
     // to evaluate mean value and spread of noise
     string nameNoise = "Detid_"+to_string(detid)+"_lldCh"+to_string(lldChannel)+"_apv_"+to_string(apvId);
-   
+
     // create the noise distribution for the given strip
     for(int iBin = 0; iBin < noiseDistribution->size(); iBin++){      
       noiseHist->SetBinContent(iBin+1,noiseDistribution->at(iBin));
@@ -212,9 +216,12 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
     noiseSpreadAPV[nameNoise]->nstrip += 1;
     noiseSpreadAPV[nameNoise]->noiseVal += noiseHist->GetRMS();
     noiseSpreadAPV[nameNoise]->isDivided = false;    
+
+    cout<<nameNoise<<" "<<noiseMeanAPV[nameNoise]->nstrip<<" Mean "<<noiseHist->GetMean()<<" RMS "<<noiseHist->RMS()<<" incremental "<<noiseMeanAPV[nameNoise]->noiseVal<<"  "<<noiseSpreadAPV[nameNoise]->noiseVal<<endl;
+
   }
   cout<<"Detected number of APVs: "<<noiseMeanAPV.size()<<endl;
-
+  /*
   tree->SetBranchStatus("fedId",kTRUE);
   tree->SetBranchStatus("fedKey",kTRUE);
   tree->SetBranchStatus("fecCrate",kTRUE);
@@ -772,5 +779,5 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   }
 
   badStripDump.close();
-
+  */
 }
