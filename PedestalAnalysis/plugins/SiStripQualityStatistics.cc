@@ -61,6 +61,8 @@ void SiStripQualityStatisticsSpecial::endJob(){
 }
 
 void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::EventSetup& iSetup){
+
+
   //Retrieve tracker topology from geometry
   edm::ESHandle<TrackerTopology> tTopoHandle;
   iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
@@ -76,6 +78,7 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
 
   m_cacheID_ = cacheID; 
 
+  // retrive the quality object
   edm::ESHandle<SiStripQuality> SiStripQuality_;
   iSetup.get<SiStripQualityRcd>().get(dataLabel_,SiStripQuality_);
     
@@ -90,9 +93,10 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
 
   if (tkMap)
     delete tkMap;
-  tkMap=new TrackerMap( "BadComponents" );
 
+  tkMap = new TrackerMap( "BadComponents" );
 
+  
   ss.str(""); 
   std::vector<uint32_t> detids=reader->getAllDetIds();
   std::vector<uint32_t>::const_iterator idet=detids.begin();
@@ -101,17 +105,15 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
     if (SiStripQuality_->IsModuleUsable((*idet)))
       tkMap->fillc(*idet,0x00ff00);
   }
-  LogDebug("SiStripQualityStatisticsSpecial") << ss.str() << std::endl;
+
+  if(printStripInfo_ == false)
+    LogDebug("SiStripQualityStatisticsSpecial") << ss.str() << std::endl;
 
 
-  std::vector<SiStripQuality::BadComponent> BC = SiStripQuality_->getBadComponentList();
-  
+  // Loop on the bad component list
+  std::vector<SiStripQuality::BadComponent> BC = SiStripQuality_->getBadComponentList();  
   for (size_t i=0;i<BC.size();++i){
     
-    //&&&&&&&&&&&&&
-    //Full Tk
-    //&&&&&&&&&&&&&
-
     if (BC[i].BadModule) 
       NTkBadComponent[0]++;
     if (BC[i].BadFibers) 
@@ -120,65 +122,40 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
       NTkBadComponent[2]+= ( (BC[i].BadApvs>>5)&0x1 )+ ( (BC[i].BadApvs>>4)&0x1 ) + ( (BC[i].BadApvs>>3)&0x1 ) + 
 	( (BC[i].BadApvs>>2)&0x1 )+ ( (BC[i].BadApvs>>1)&0x1 ) + ( (BC[i].BadApvs)&0x1 );
 
-    //&&&&&&&&&&&&&&&&&
-    //Single SubSyste
-    //&&&&&&&&&&&&&&&&&
     int component;
     DetId detectorId=DetId(BC[i].detid);
     int subDet = detectorId.subdetId();
-    if ( subDet == StripSubdetector::TIB ){
-      //&&&&&&&&&&&&&&&&&
-      //TIB
-      //&&&&&&&&&&&&&&&&&
-      
+
+    if ( subDet == StripSubdetector::TIB ){      
       component=tTopo->tibLayer(BC[i].detid);
       SetBadComponents(0, component, BC[i]);         
-    } else if ( subDet == StripSubdetector::TID ) {
-      //&&&&&&&&&&&&&&&&&
-      //TID
-      //&&&&&&&&&&&&&&&&&
-
+    } 
+    else if ( subDet == StripSubdetector::TID ) {
       component=tTopo->tidSide(BC[i].detid)==2?tTopo->tidWheel(BC[i].detid):tTopo->tidWheel(BC[i].detid)+3;
       SetBadComponents(1, component, BC[i]);         
 
-    } else if ( subDet == StripSubdetector::TOB ) {
-      //&&&&&&&&&&&&&&&&&
-      //TOB
-      //&&&&&&&&&&&&&&&&&
-
+    } 
+    else if ( subDet == StripSubdetector::TOB ) {
       component=tTopo->tobLayer(BC[i].detid);
       SetBadComponents(2, component, BC[i]);         
-
-    } else if ( subDet == StripSubdetector::TEC ) {
-      //&&&&&&&&&&&&&&&&&
-      //TEC
-      //&&&&&&&&&&&&&&&&&
-
+    } 
+    else if ( subDet == StripSubdetector::TEC ) {
       component=tTopo->tecSide(BC[i].detid)==2?tTopo->tecWheel(BC[i].detid):tTopo->tecWheel(BC[i].detid)+9;
       SetBadComponents(3, component, BC[i]);         
-
+      
     }    
   }
+  
 
-  //&&&&&&&&&&&&&&&&&&
-  // Single Strip Info
-  //&&&&&&&&&&&&&&&&&&
+  // Single strip
   float percentage=0;
 
   SiStripQuality::RegistryIterator rbegin = SiStripQuality_->getRegistryVectorBegin();
   SiStripQuality::RegistryIterator rend   = SiStripQuality_->getRegistryVectorEnd();
   
-  ss_detail.str("");
-  if (printStripInfo_) {
-    ss_detail << std::endl;
-    ss_detail << " Detailed Strip level Information ";  
-    ss_detail << std::endl;
-  }
   for (SiStripBadStrip::RegistryIterator rp=rbegin; rp != rend; ++rp) {
     ss.str(""); 
     uint32_t detid=rp->detid;
-    if (printStripInfo_) ss_detail << " " << detid << " => ";
-
     int subdet=-999; int component=-999;
     DetId detectorId=DetId(detid);
     int subDet = detectorId.subdetId();
@@ -198,21 +175,26 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
     
     
     SiStripQuality::Range sqrange = SiStripQuality::Range( SiStripQuality_->getDataVectorBegin()+rp->ibegin , SiStripQuality_->getDataVectorBegin()+rp->iend );
-    
-    
-    percentage=0;
+        
+    percentage=0;   
     for(int it=0;it<sqrange.second-sqrange.first;it++){
       unsigned int range=SiStripQuality_->decode( *(sqrange.first+it) ).range;
-      if (printStripInfo_) ss_detail << SiStripQuality_->decode(*(sqrange.first+it) ).firstStrip << ":" << range << " "  ;
+      for(unsigned int i = SiStripQuality_->decode(*(sqrange.first+it) ).firstStrip; i < SiStripQuality_->decode(*(sqrange.first+it) ).firstStrip+range; i++){
+	// check whether the trips is on lldChan 1, 2 or 3
+	int lldChan =  int(i/256)+1; 
+	int apvId   =  int((i-(lldChan-1)*256)/128)+1;
+	int stripId =  int((i-(lldChan-1)*256-(apvId-1)*128));
+	if (printStripInfo_) ss_detail << detid<<" "<<lldChan<<" "<<apvId<<" "<<stripId<<"\n";  
+      }
       NTkBadComponent[3]+=range;
       NBadComponent[subdet][0][3]+=range;
       NBadComponent[subdet][component][3]+=range;
       percentage+=range;
     }
-    if (printStripInfo_) ss_detail << std::endl;
+
     if(percentage!=0)
       percentage/=128.*reader->getNumberOfApvsAndStripLength(detid).first;
-    if(percentage>1)
+    if(percentage>1 and not printStripInfo_)
       edm::LogError("SiStripQualityStatisticsSpecial") <<  "PROBLEM detid " << detid << " value " << percentage<< std::endl;
     
     //------- Global Statistics on percentage of bad components along the IOVs ------//
@@ -220,11 +202,7 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
     if(tkhisto!=NULL)
       tkhisto->fill(detid,percentage);
   }
-
-  //&&&&&&&&&&&&&&&&&&
-  // printout
-  //&&&&&&&&&&&&&&&&&&
-
+  
   ss.str("");
   ss << "\n-----------------\nNew IOV starting from run " <<   e.id().run() << " event " << e.id().event() << " lumiBlock " << e.luminosityBlock() << " time " << e.time().value() << " chacheID " << m_cacheID_ << "\n-----------------\n";
   ss << "\n-----------------\nGlobal Info\n-----------------";
@@ -273,7 +251,8 @@ void SiStripQualityStatisticsSpecial::analyze( const edm::Event& e, const edm::E
     ss << "\nTEC- Disk " << i-9 << " :" << ssV[3][i].str();
 
 
-  edm::LogInfo("SiStripQualityStatisticsSpecial") << ss.str() << std::endl;
+  if(printStripInfo_ == false)
+    edm::LogInfo("SiStripQualityStatisticsSpecial") << ss.str() << std::endl;
 
   if (printStripInfo_) edm::LogInfo("SiStripQualityStatisticsSpecial") << ss_detail.str() << std::endl;
 

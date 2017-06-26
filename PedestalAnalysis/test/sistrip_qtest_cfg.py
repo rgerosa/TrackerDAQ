@@ -23,15 +23,15 @@ process = cms.Process("SiStripQualityStatJob")
 ### to store output text file from MessageLogger
 process.MessageLogger = cms.Service("MessageLogger",
                                     destinations = cms.untracked.vstring('cout','cerr','SiStripQualityStatSummary'), #Reader, cout
-                                    categories = cms.untracked.vstring('SiStripQualityStatistics'),
+                                    categories = cms.untracked.vstring('SiStripQualityStatisticsSpecial'),
                                     cerr = cms.untracked.PSet(threshold = cms.untracked.string('ERROR')
                                                               ),
-                                    cout = cms.untracked.PSet(threshold = cms.untracked.string('WARNING'),
+                                    cout = cms.untracked.PSet(threshold = cms.untracked.string('INFO'),
                                                               default = cms.untracked.PSet(limit=cms.untracked.int32(0))
                                                               ),
                                     SiStripQualityStatSummary = cms.untracked.PSet(threshold = cms.untracked.string('INFO'),
                                                                                    default = cms.untracked.PSet(limit=cms.untracked.int32(0)),
-                                                                                   SiStripQualityStatistics = cms.untracked.PSet(limit=cms.untracked.int32(100000))
+                                                                                   SiStripQualityStatisticsSpecial = cms.untracked.PSet(limit=cms.untracked.int32(100000))
                                                                                    )
                                     
                                     )
