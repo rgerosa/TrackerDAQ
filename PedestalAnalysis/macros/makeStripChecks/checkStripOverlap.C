@@ -2,7 +2,7 @@
 #include "../TrackerStrip.h"
 
 // check the overlap between two files giving a complate list of strip information
-void checkOverlap(string file1, string file2){
+void checkStripOverlap(string file1, string file2){
 
   vector<TrackerStrip> vec1;
   vector<TrackerStrip> vec2;
@@ -29,7 +29,7 @@ void checkOverlap(string file1, string file2){
 
   long int total_vec1 = vec1.size();
   long int total_vec2 = vec2.size();
-  long int common_strip;
+  long int common_strip = 0;
 
   for(auto element : vec1){
     if(std::find(vec2.begin(),vec2.end(),element) != vec2.end())

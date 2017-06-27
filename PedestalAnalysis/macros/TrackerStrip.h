@@ -6,8 +6,8 @@
 class TrackerStrip {
 
  public:
-
-  TrackerStrip();
+  
+  TrackerStrip(){};
   ~TrackerStrip(){};
  TrackerStrip(uint16_t fecCrate, uint16_t fecSlot, uint16_t fecRing, uint16_t ccuAdd, uint16_t ccuCh, uint32_t fedKey, uint16_t lldCh, uint32_t detid, uint16_t apvid, uint32_t stripid):
   fecCrate_(fecCrate),
@@ -50,4 +50,3 @@ class TrackerStrip {
 };
 
 #endif
-

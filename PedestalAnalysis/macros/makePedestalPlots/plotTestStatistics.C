@@ -46,10 +46,10 @@ void plotTestStatistics(string inputFileName,string outputDIR){
   inputFile->cd();
   TTree* tree = (TTree*) inputFile->Get("pedestalFullNoise");
 
-  TH1F* ksPValue       = new TH1F("ksPValue","Kolmogorov Smirnov",500,0,1);
-  TH1F* adPValue = new TH1F("adPValue","Anderson Darling",  500,0,1);
-  TH1F* jbPValue = new TH1F("jbPValue","Jacque Bera",500,0,1);
-  TH1F* chi2PValue = new TH1F("chi2PValue","#chi^{2} test",500,0,1);
+  TH1F* ksPValue       = new TH1F("ksPValue","Kolmogorov Smirnov",75,0,1);
+  TH1F* adPValue = new TH1F("adPValue","Anderson Darling",  75,0,1);
+  TH1F* jbPValue = new TH1F("jbPValue","Jacque Bera",75,0,1);
+  TH1F* chi2PValue = new TH1F("chi2PValue","#chi^{2} test",75,0,1);
 
   ksPValue->Sumw2();
   adPValue->Sumw2();
@@ -57,19 +57,31 @@ void plotTestStatistics(string inputFileName,string outputDIR){
   chi2PValue->Sumw2();
 
   float    fitChi2Probab, kSProbab, jBProbab, aDProbab;
+  float    nBin, xMin, xMax;
+  vector<float>* noiseDistribution = 0;
 
   tree->SetBranchStatus("*",kFALSE);
   tree->SetBranchStatus("fitChi2Probab",kTRUE);
   tree->SetBranchStatus("kSProbab",kTRUE);
   tree->SetBranchStatus("jBProbab",kTRUE);
   tree->SetBranchStatus("aDProbab",kTRUE);
+  tree->SetBranchStatus("noiseDistribution",kTRUE);
+  tree->SetBranchStatus("nBin",kTRUE);
+  tree->SetBranchStatus("xMin",kTRUE);
+  tree->SetBranchStatus("xMax",kTRUE);
 
   tree->SetBranchAddress("fitChi2Probab",&fitChi2Probab);
   tree->SetBranchAddress("kSProbab",&kSProbab);
   tree->SetBranchAddress("aDProbab",&aDProbab);
   tree->SetBranchAddress("jBProbab",&jBProbab);
+  tree->SetBranchAddress("noiseDistribution",&noiseDistribution);
+  tree->SetBranchAddress("nBin",&nBin);
+  tree->SetBranchAddress("xMin",&xMin);
+  tree->SetBranchAddress("xMax",&xMax);
+ 
 
   TCanvas* canvas = new TCanvas("canvas","canvas",600,650);
+  TH1F* noiseHist = NULL;
 
   for(long int iChannel = 0; iChannel < tree->GetEntries(); iChannel++){
     tree->GetEntry(iChannel);
@@ -77,6 +89,22 @@ void plotTestStatistics(string inputFileName,string outputDIR){
     if(iChannel %10000 == 0) cout<<"\r"<<"iChannel "<<100*double(iChannel)/(tree->GetEntries()/reductionFactor)<<" % ";
     if(iChannel > double(tree->GetEntries())/reductionFactor) break;
 
+    if(noiseHist == NULL){
+      noiseHist = new TH1F ("noiseHist","",nBin,xMin,xMax);
+      noiseHist->Sumw2();
+    }
+    noiseHist->Reset();
+
+    // create the noise distribution for the given strip                                                                                                                                               
+    for(int iBin = 0; iBin < noiseDistribution->size(); iBin++){
+      noiseHist->SetBinContent(iBin+1,noiseDistribution->at(iBin));
+    }
+    
+    //////// basic quality cuts
+    if(noiseHist->Integral() == 0) continue;
+    if(noiseHist->GetRMS() < 1.5) continue;
+    if((noiseHist->GetBinContent(1)+noiseHist->GetBinContent(noiseHist->GetNbinsX()))/noiseHist->Integral() >= 0.3) continue;
+   
     ksPValue->Fill(kSProbab);
     chi2PValue->Fill(fitChi2Probab);
     adPValue->Fill(aDProbab);
@@ -85,9 +113,9 @@ void plotTestStatistics(string inputFileName,string outputDIR){
 
   vector<TH1F*> vecHisto; 
   vecHisto.push_back(ksPValue);
-  //  vecHisto.push_back(adPValue);
-  //  vecHisto.push_back(jbPValue);
-  //  vecHisto.push_back(chi2PValue);
+  vecHisto.push_back(adPValue);
+  vecHisto.push_back(jbPValue);
+  vecHisto.push_back(chi2PValue);
 
   plotCanvas(canvas,vecHisto,outputDIR);
 }

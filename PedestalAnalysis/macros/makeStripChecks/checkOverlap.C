@@ -25,9 +25,9 @@ void checkOverlap(string file1, string file2){
   }
   infile2.close();
 
-  long int total;
-  long int common_detid;
-  long int common_detid_nstrip;
+  long int total = 0;
+  long int common_detid = 0;
+  long int common_detid_nstrip = 0;
 
   for(auto element : map1){
     total++;
