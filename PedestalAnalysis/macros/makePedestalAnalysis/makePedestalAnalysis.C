@@ -5,7 +5,7 @@
 static int  reductionFactor = 1;
 static bool generateRandomDistribution = false;
 
-void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCablingMap, string outputFileName){
+void makePedestalAnalysis(string inputFileName, string outputDIR, string inputCablingMap, string outputFileName){
 
   gROOT->ProcessLine("gErrorIgnoreLevel = 1");
   
@@ -43,7 +43,7 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
   // branches
   uint32_t detid_,fedKey_;
   uint16_t fecCrate_,fecSlot_, fecRing_, ccuAdd_, ccuChan_, lldChannel_, fedId_, fedCh_, apvId_, stripId_;
-  int      isNull_;
+  int      isNullHisto_,isNullFit_;
   float    noiseMean_,noiseRMS_, noiseSkewness_, noiseKurtosis_;
   float    fitChi2_, fitChi2Probab_, fitStatus_;
   float    fitGausMean_, fitGausSigma_, fitGausNormalization_;
@@ -69,7 +69,8 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
   outputTree->Branch("apvId",&apvId_,"apvId/s");
   outputTree->Branch("stripId",&stripId_,"stripId/s");
 
-  outputTree->Branch("isNull",&isNull_,"isNull/I");
+  outputTree->Branch("isNullHisto",&isNullHisto_,"isNullHisto/I");
+  outputTree->Branch("isNullFit",&isNullFit_,"isNullFit/I");
   outputTree->Branch("noiseMean",&noiseMean_,"noiseMean/F");
   outputTree->Branch("noiseRMS",&noiseRMS_,"noiseRMS/F");
   outputTree->Branch("noiseSkewness",&noiseSkewness_,"noiseSkewness/F");
@@ -87,8 +88,8 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
   outputTree->Branch("noiseIntegral3SigmaFromFit",&noiseIntegral3SigmaFromFit_,"noiseIntegral3SigmaFromFit/F");
   outputTree->Branch("noiseIntegral4Sigma",&noiseIntegral4Sigma_,"noiseIntegral4Sigma/F");
   outputTree->Branch("noiseIntegral4SigmaFromFit",&noiseIntegral4SigmaFromFit_,"noiseIntegral4SigmaFromFit/F");
-  outputTree->Branch("noiseIntegral5Sigma",&noiseIntegral4Sigma_,"noiseIntegral5Sigma/F");
-  outputTree->Branch("noiseIntegral5SigmaFromFit",&noiseIntegral4SigmaFromFit_,"noiseIntegral5SigmaFromFit/F");
+  outputTree->Branch("noiseIntegral5Sigma",&noiseIntegral5Sigma_,"noiseIntegral5Sigma/F");
+  outputTree->Branch("noiseIntegral5SigmaFromFit",&noiseIntegral5SigmaFromFit_,"noiseIntegral5SigmaFromFit/F");
   outputTree->Branch("kSValue",&kSValue_,"kSValue/F");
   outputTree->Branch("jBValue",&jBValue_,"jBValue/F");
   outputTree->Branch("aDValue",&aDValue_,"aDValue/F");
@@ -143,7 +144,7 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
     TProfile* histoPeds = (TProfile*) inputFile->Get(objName.Data());
     objName.ReplaceAll("Pedestals","NoiseProfile");
     TProfile* histoNoiseMean = (TProfile*) inputFile->Get(objName.Data());
-    
+
     if(histoNoise == NULL or histoNoise == 0 or histoPeds == NULL or histoPeds == 0 or histoNoise == NULL or histoNoise == 0){
       nullHistos++;
       if(histoNoise) delete histoNoise;
@@ -164,6 +165,53 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
 
     /// Loop on each noise 2D histo to extract strip information
     for(int iBinY = 0; iBinY < histoNoise->GetNbinsY(); iBinY++){
+
+      // to initialize branches --> to ensure they are cleaned at each event
+      detid_    = 0; 
+      fedKey_   = 0; 
+      fecCrate_ = 0; 
+      fecSlot_  = 0; 
+      fecRing_  = 0; 
+      ccuAdd_   = 0; 
+      ccuChan_  = 0; 
+      lldChannel_ = 0; 
+      fedId_    = 0; 
+      fedCh_    = 0; 
+      apvId_    = 0; 
+      stripId_  = 0; 
+      noiseMean_   = 0.; 
+      noiseRMS_    = 0.; 
+      noiseSkewness_ = 0.; 
+      noiseKurtosis_ = 0.; 
+      fitGausMean_   = 0.; 
+      fitGausSigma_  = 0.; 
+      fitGausNormalization_ = 0.;
+      fitGausMeanError_ = 0.; 
+      fitGausSigmaError_ = 0.;
+      fitGausNormalizationError_ = 0.;	  	  
+      fitChi2_ = 0.; 
+      fitChi2Probab_ = 0.; 
+      fitStatus_ = -1.; 
+      noiseIntegral3Sigma_ = 0.; noiseIntegral3SigmaFromFit_ = 0.; 
+      noiseIntegral4Sigma_ = 0.; noiseIntegral4SigmaFromFit_ = 0.; 
+      noiseIntegral5Sigma_ = 0.; noiseIntegral5SigmaFromFit_ = 0.; 
+      kSProbab_ = 0.; 
+      jBProbab_ = 0.; 
+      kSProbabNoNorm_ = 0.;
+      kSValue_  = 0.; 
+      jBValue_  = 0.; 
+      aDValue_  = 0.; 
+      aDProbab_ = 0.;	
+      nBin_     = 0.; 
+      xMin_     = 0.; 
+      xMax_     = 0.;
+      pedestal_ = 0 ;  
+      noise_    = 0;
+      isNullHisto_ = 0; 
+      isNullFit_ = 0;
+      noiseDistribution_.clear();
+      noiseDistributionError_.clear();
+      
       histoNoiseStrip->Reset();
       histoNoiseStrip->SetDirectory(0);
       // two multiplexed APV per line
@@ -179,25 +227,7 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
       }
       
       nStrips++;
-      
-      // to initialize branches
-      detid_       = 0; fedKey_   = 0; fecCrate_   = 0; fecSlot_ = 0; fecRing_ = 0; 
-      ccuAdd_      = 0; ccuChan_  = 0; lldChannel_ = 0; fedId_   = 0; fedCh_   = 0; 
-      apvId_        = 0; stripId_ = 0; 
-      noiseMean_   = 0.; noiseRMS_     = 0.; noiseSkewness_        = 0.; noiseKurtosis_ = 0.; 
-      fitGausMean_ = 0.; fitGausSigma_ = 0.; fitGausNormalization_ = 0.;
-      fitGausMeanError_ = 0.; fitGausSigmaError_ = 0.;fitGausNormalizationError_ = 0.;	  	  
-      fitChi2_ = 0.; fitChi2Probab_ = 0.; fitStatus_ = -1.; 
-      noiseIntegral3Sigma_ = 0.; noiseIntegral3SigmaFromFit_ = 0.; 
-      noiseIntegral4Sigma_ = 0.; noiseIntegral4SigmaFromFit_ = 0.; 
-      noiseIntegral5Sigma_ = 0.; noiseIntegral5SigmaFromFit_ = 0.; 
-      kSProbab_ = 0.; jBProbab_ = 0.; kSProbabNoNorm_ = 0.;
-      kSValue_  = 0.; jBValue_  = 0.; 
-      aDValue_  = 0.; aDProbab_ = 0.;	
-      nBin_   = 0.; xMin_ = 0.; xMax_ = 0.;
-      pedestal_ = 0 ;  noise_ = 0;
-      isNull_ = 0;
-      
+            
       // basic info
       detid_    = *detid;
       fedKey_   = fedKey;
@@ -218,11 +248,9 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
       
       // skip strips with no measurement
       if(histoNoiseStrip->Integral() == 0){
-	isNull_ = 0;
+	isNullHisto_ = 1;
 	stripsNoIntegral++;
       }
-      else
-	isNull_ = 1;
       
       // basic info of nioise distribution
       noiseMean_ = histoNoiseStrip->GetMean();
@@ -255,9 +283,9 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
 	fitChi2Probab_     = result->Prob();
 
 	// integral outside 3, 4 and 5 sigma
-	noiseIntegral3SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+fitGausSigma_*3),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-fitGausSigma_*3)))/histoNoiseStrip->Integral();
-	noiseIntegral4SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+fitGausSigma_*4),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-fitGausSigma_*4)))/histoNoiseStrip->Integral();
-	noiseIntegral5SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(noiseMean_+fitGausSigma_*5),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(noiseMean_-fitGausSigma_*5)))/histoNoiseStrip->Integral();
+	noiseIntegral3SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(fitGausMean_+fitGausSigma_*3),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(fitGausMean_-fitGausSigma_*3)))/histoNoiseStrip->Integral();
+	noiseIntegral4SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(fitGausMean_+fitGausSigma_*4),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(fitGausMean_-fitGausSigma_*4)))/histoNoiseStrip->Integral();
+	noiseIntegral5SigmaFromFit_ = (histoNoiseStrip->Integral(histoNoiseStrip->FindBin(fitGausMean_+fitGausSigma_*5),histoNoiseStrip->GetNbinsX()+1) + histoNoiseStrip->Integral(0,histoNoiseStrip->FindBin(fitGausMean_-fitGausSigma_*5)))/histoNoiseStrip->Integral();
 	
 	// compute the jacques bera test statistics
 	jBValue_   = (histoNoiseStrip->Integral()/6)*(noiseSkewness_*noiseSkewness_+TMath::Power(noiseKurtosis_,2)/4);	  
@@ -303,8 +331,10 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
 	  }
 	}
       }
-      else
+      else{
 	noFitResult++;
+	isNullFit_ = 1;
+      }
 
       if(not histoBranches){
 	noiseDistribution_.clear();
@@ -315,8 +345,6 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
 	}
     
       // set histogram
-      noiseDistribution_.clear();
-      noiseDistributionError_.clear();
       for(int iBin = 0; iBin < histoNoiseStrip->GetNbinsX(); iBin++){
 	noiseDistribution_.push_back(histoNoiseStrip->GetBinContent(iBin+1));
 	noiseDistributionError_.push_back(histoNoiseStrip->GetBinError(iBin+1));	      
@@ -328,9 +356,9 @@ void fullPedestalAnalysis(string inputFileName, string outputDIR, string inputCa
       // fill all branches for each strip
       ouputTreeFile->cd();
       outputTree->Fill();      
-      //if(result.Get()) delete result.Get();
-
+      
     }	
+
     if(histoNoise) delete histoNoise;
     if(histoPeds) delete histoPeds;
     if(histoNoiseMean) delete histoNoiseMean; 
