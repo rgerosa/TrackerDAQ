@@ -21,7 +21,7 @@ static float maximumSignificance = 10;
 
 //to flag strips with long tail
 static float minKurtosis = 2;
-static float minIntegral5sigma = 0.0008;
+static float minIntegral5sigma = 0.0005;
 
 // double peaked strips
 static float distance_cut   = 1;
@@ -594,11 +594,9 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
       // store it in order to dispaly on the tracker map
       badStripConservative.push_back(TrackerStrip(fecCrate,fecSlot,fecRing,ccuAdd,ccuChan,uint32_t(atoi(fedKeyStr.c_str())),lldChannel,detid,apvId,stripId));
-
       // final one
       nbadCombinedFinal++;
       moduleNumeratorFinal[detid] += 1;
-
     }
 
     //// combining all of them --> aggressive approach
@@ -618,7 +616,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
     }
 
     // passing tight but nont conservative
-    else if(not passConservative and passTight and not passFinalSelection){
+    if(not passConservative and passTight and not passFinalSelection){
       badCombinedPassingTightNotConservative->cd();
       nbadCombinedPassingTightNotConservative++;
       moduleNumeratorTightNotConservative[detid] = moduleNumeratorTightNotConservative[detid]+1;
