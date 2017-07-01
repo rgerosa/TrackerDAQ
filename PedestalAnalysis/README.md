@@ -9,6 +9,7 @@ CMSSW Setup:
       git-cms-addpkg DataFormats/SiStripCommon/;
       git-cms-addpkg DPGAnalysis/SiStripTools/;
       git-cms-addpkg CommonTools/TrackerMap;
+      git-cms-addpkg CondFormats/SiStripObjects	
       git cms-addpkg DQM/SiStripCommissioningAnalysis;
       git cms-addpkg DQM/SiStripCommissioningClients;
       git cms-addpkg DQM/SiStripCommissioningDbClients;

@@ -90,56 +90,60 @@ void setTDRStyle (){
 
 }
 
-void CMS_lumi(TPad* pad, string lumi, bool up = false, int reduceSize = false, float offset = 0){
+void CMS_lumi(TPad* pad, string lumi, bool up = false, bool skipPreliminary = true, int reduceSize = false, float offset = 0,float offsetLumi = 0){
 
   TLatex* latex2 = new TLatex();
   latex2->SetNDC();
   latex2->SetTextSize(0.6*pad->GetTopMargin());
   latex2->SetTextFont(42);
   latex2->SetTextAlign(31);
-  if(reduceSize == 2)
-    latex2->SetTextSize(0.60*pad->GetTopMargin());
+  if(reduceSize)
+    latex2->SetTextSize(0.5*pad->GetTopMargin());
   
-  latex2->DrawLatex(0.94, 0.95,"(13 TeV)");
+  if(lumi != "")
+    latex2->DrawLatex(0.94+offsetLumi, 0.95,(lumi+" fb^{-1} (13 TeV)").c_str());
+  else
+    latex2->DrawLatex(0.88+offsetLumi, 0.95,(lumi+"(13 TeV)").c_str());
 
   if(up){
     latex2->SetTextSize(0.65*pad->GetTopMargin());
+    if(reduceSize)
+      latex2->SetTextSize(0.5*pad->GetTopMargin());
     latex2->SetTextFont(62);
     latex2->SetTextAlign(11);    
     latex2->DrawLatex(0.15+offset, 0.95, "CMS");
   }
   else{
     latex2->SetTextSize(0.6*pad->GetTopMargin());
-    if(reduceSize == 1)
+    if(reduceSize)
       latex2->SetTextSize(0.45*pad->GetTopMargin());
     else if(reduceSize == 2)
       latex2->SetTextSize(0.40*pad->GetTopMargin());
 
     latex2->SetTextFont(62);
     latex2->SetTextAlign(11);    
-    latex2->DrawLatex(0.175+offset, 0.85, "CMS");
+    latex2->DrawLatex(0.175+offset, 0.86, "CMS");
   }
 
-  if(up){
-    latex2->SetTextSize(0.65*pad->GetTopMargin());
-    latex2->SetTextFont(52);
-    latex2->SetTextAlign(11);
-    latex2->DrawLatex(0.25+offset, 0.95, "Preliminary");
-  }
-  else{
-    latex2->SetTextSize(0.6*pad->GetTopMargin());
-    if(reduceSize == 1)
-      latex2->SetTextSize(0.45*pad->GetTopMargin());
-    else if(reduceSize == 2)
-      latex2->SetTextSize(0.40*pad->GetTopMargin());
-    latex2->SetTextFont(52);
-    latex2->SetTextAlign(11);    
-    if(reduceSize == 1)
-      latex2->DrawLatex(0.235+offset, 0.85, "Preliminary");
-    else if(reduceSize == 2)
-      latex2->DrawLatex(0.24+offset, 0.85, "Preliminary");
-    else
-      latex2->DrawLatex(0.28+offset, 0.85, "Preliminary");
+  if(not skipPreliminary){
+    
+    if(up){
+      latex2->SetTextSize(0.55*pad->GetTopMargin());
+      latex2->SetTextFont(52);
+      latex2->SetTextAlign(11);
+      latex2->DrawLatex(0.235+offset, 0.95, "Preliminary");
+    }
+    else{
+      latex2->SetTextSize(0.6*pad->GetTopMargin());
+      if(reduceSize)
+	latex2->SetTextSize(0.45*pad->GetTopMargin());
+      latex2->SetTextFont(52);
+      latex2->SetTextAlign(11);    
+      if(reduceSize)
+	latex2->DrawLatex(0.235+offset, 0.86, "Preliminary");
+      else
+	latex2->DrawLatex(0.28+offset, 0.86, "Preliminary");
+    }
   }
 }
 

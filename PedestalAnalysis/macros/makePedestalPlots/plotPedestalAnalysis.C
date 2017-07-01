@@ -335,7 +335,25 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   TFile* multiPeakChannelsBimodality = new TFile((outputDIR+"/multiPeakChannelsBimodality.root").c_str(),"RECREATE");
   TFile* multiPeakChannelsCombined   = new TFile((outputDIR+"/multiPeakChannelsCombined.root").c_str(),"RECREATE");
 
+  // output light tree
+  TFile* outputFile = new TFile((outputDIR+"/badStripOutputTree.root").c_str(),"RECREATE");
+  TTree* outputTree = new TTree("badStripTree","badStripTree");
+  uint32_t badStrip = 0;
 
+  outputTree->Branch("detid",&detid,"detid/i");
+  outputTree->Branch("fedKey",&fedKey,"fedKey/i");
+  outputTree->Branch("fecCrate",&fecCrate,"fecCrate/s");
+  outputTree->Branch("fecSlot",&fecSlot,"fecSlot/s");
+  outputTree->Branch("fecRing",&fecRing,"fecRing/s");
+  outputTree->Branch("ccuAdd",&ccuAdd,"ccuAdd/s");
+  outputTree->Branch("ccuChan",&ccuChan,"ccuChan/s");
+  outputTree->Branch("lldChannel",&lldChannel,"lldChannel/s");
+  outputTree->Branch("fedId",&fedId,"fedId/s");
+  outputTree->Branch("fedCh",&fedCh,"fedCh/s");
+  outputTree->Branch("apvId",&apvId,"apvId/s");
+  outputTree->Branch("stripId",&stripId,"stripId/s");
+  outputTree->Branch("badStrip",&badStrip,"badStrip/s");
+    
   ///// Useful things
   int   nonNullBins = 0;
   float chi2Ratio  = 0;
@@ -351,6 +369,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   TF1*  noiseFit2Gaus  = NULL;
   TFitResultPtr result;
   std::map<string,string> fitParam;
+
 
   cout<<"Loop to make test statistics"<<endl;
   for(long int iChannel = 0; iChannel < tree->GetEntries(); iChannel++){
@@ -430,7 +449,8 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
     moduleDenominator[detid] = moduleDenominator[detid]+1;
 
     bool passFinalSelection = false;
-    
+    badStrip = 0;
+
     //Null integral
     if(noiseHist->Integral() <= 0){
       if(isNullHisto != 1) 
@@ -642,7 +662,12 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
     }
     
     if(passTail) passFinalSelection = true;
-    
+
+    if(passFinalSelection) // mark the strip as bad
+      badStrip = 1;
+    outputFile->cd();
+    outputTree->Fill(); 
+
     // try to identify double peaked strips
     if(passFinalSelection and testDoubleGaussianChannels){
       
@@ -725,7 +750,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
 	  nbadDoublePeakCombined++;
 	  moduleNumeratorDoublePeak[detid]++;
 	}
-	}
+      }
     }        
   }
 
@@ -755,6 +780,12 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   multiPeakChannelsAmplitude->Close();
   multiPeakChannelsBimodality->Close();
   multiPeakChannelsCombined->Close();
+  
+  // save output tree
+  outputTree->BuildIndex("detid");
+  outputTree->Write(outputTree->GetName(),TObject::kOverwrite);
+  outputFile->Close();
+  
 
   // output sstatistics
   cout<<"#### Bad Null Integral "<<nbadNullIntegral<<" --> "<<double(nbadNullIntegral)/(tree->GetEntries()/reductionFactor)*100<<" % "<<endl;
@@ -915,4 +946,6 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   }
   
   badStripDumpVsOfflineWithSignificance.close();
+
+
 }
