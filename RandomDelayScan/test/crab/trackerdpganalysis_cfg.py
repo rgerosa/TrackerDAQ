@@ -61,6 +61,9 @@ process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 from Configuration.AlCa.GlobalTag import GlobalTag
 #process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run2_data_GRun', '')
 process.GlobalTag = GlobalTag(process.GlobalTag, '92X_dataRun2_Express_v2', '')
+if options.isRawFile or options.isDatFile:
+    process.GlobalTag = GlobalTag(process.GlobalTag, '92X_dataRun2_Prompt_v2', '')
+    
 
 process.options = cms.untracked.PSet(
     wantSummary = cms.untracked.bool(True))

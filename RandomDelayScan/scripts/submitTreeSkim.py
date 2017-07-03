@@ -77,7 +77,7 @@ if __name__ == '__main__':
        ## write job sh file                                                                                                                                             
        jobmacro = open('%s/%s/job.C'%(options.jobDIR,"JOB_"+str(iFile)),'w')
        jobmacro.write("{\n");
-       jobmacro.write("gROOT->ProcessLine(\".L "+currentDIR+"/macros/skimTrees.C\");\n");
+       jobmacro.write("gROOT->ProcessLine(\".L "+currentDIR+"/macros/makeSkimTrees/skimTrees.C\");\n");
        jobmacro.write("gROOT->ProcessLine(\""+"skimTrees(\\\"%s\\\",\\\"%s\\\",%i)\");\n"%(fileName,options.outputBaseName+"_"+str(iFile)+".root",isBOn));
        jobmacro.write("}\n");
        jobmacro.close();

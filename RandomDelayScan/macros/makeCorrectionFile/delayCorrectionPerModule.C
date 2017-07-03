@@ -9,7 +9,7 @@
 
 // take as input the output root file produced by delayValidationPerModule (TTree with floating point correction for each detId).
 // It creates a new file with a TTree with only Detid, fedChannel, delay in step of 1.04 ns
-void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = "false", float delayCutForPlotting = 4, string observable = "maxCharge"){
+void  delayCorrectionPerModule(string fileName, string outputDIR, string outputName, bool saveFits = false, float delayCutForPlotting = 4, string observable = "maxCharge"){
 
   setTDRStyle();
   gROOT->SetBatch(kTRUE);

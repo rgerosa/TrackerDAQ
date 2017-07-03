@@ -8,7 +8,7 @@
 
 void  makeCheckDistributionLargeDelay(string inputFileName, 
 				      string outputDIR, 
-				      int    delayThreshold,
+				      float  delayThreshold,
 				      string observable){
 
   setTDRStyle();

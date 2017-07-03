@@ -56,12 +56,15 @@ void  makeCheckDistributionFED(string inputFileName,
   leg.SetFillColor(0);
   leg.SetFillStyle(0);
   leg.SetBorderSize(0);
-  
+
+  int nLLDChannels = 0;
   while(reader.Next()){
 
     if(*notFound_i) continue; // skip bad channels in the fed
     if(*fedId_i != fedNumber) continue; // skip channels not belonging to the interesting FED
 
+    nLLDChannels++;
+    
     if((fedHistogramMap[*Detid_i] != 0 and fedHistogramMap[*Detid_i] != NULL) and 
        (fedFunctionMap[*Detid_i] != 0 and fedFunctionMap[*Detid_i] != NULL)) continue; // means that the same detId have been already studied
 
@@ -103,6 +106,9 @@ void  makeCheckDistributionFED(string inputFileName,
     canvas.SaveAs((outputDIR+Form("/distribution_fed_%d_detid_%d.png",*fedId_i,*Detid_i)).c_str(),"png");
     canvas.SaveAs((outputDIR+Form("/distribution_fed_%d_detid_%d.pdf",*fedId_i,*Detid_i)).c_str(),"pdf");
   }
+
+  cout<<"Found good LLD channels  = "<<nLLDChannels<<" belonging to FED "<<fedNumber<<endl;
+
 }
 
 
