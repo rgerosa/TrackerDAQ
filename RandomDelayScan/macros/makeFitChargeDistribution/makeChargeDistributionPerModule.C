@@ -28,6 +28,9 @@
 
 const bool  verbosity = false;
 
+// reduce the number of events by                                                                                                                                                                      
+static int  reductionFactor = 10;
+
 class chargeShape{
 
 public:
@@ -49,14 +52,14 @@ public:
 
 };
  
-void fitChargeDistribution(string file0, 
-			   string outputDirectory, 
-			   string observable = "maxCharge", 			   
-			   float  delayMin = 0,
-			   float  delayMax = 10,
-			   bool   applyCorrection = true,
-			   bool   saveCanvas      = true,
-			   bool   plotCanvas      = false){
+void makeChargeDistributionPerModule(string file0, 
+				     string outputDirectory, 
+				     string observable = "maxCharge", 			   
+				     float  delayMin = 0,
+				     float  delayMax = 10,
+				     bool   applyCorrection = true,
+				     bool   saveCanvas      = true,
+				     bool   plotCanvas      = false){
   
   system(("mkdir -p "+outputDirectory).c_str());
 
@@ -101,10 +104,10 @@ void fitChargeDistribution(string file0,
   
   // loop on the selected events to fill the histogra map per dei id
   long int selectedEvents = 0; 
-  for(long int iCluster = 0; iCluster < clusters->GetEntries(); iCluster++){
+  for(long int iCluster = 0; iCluster < clusters->GetEntries()/reductionFactor; iCluster++){
     
     cout.flush();    
-    if(iCluster % 1000000 == 0) cout<<"\r"<<"iCluster "<<100*double(iCluster)/clusters->GetEntries()<<" % ";
+    if(iCluster % 100000 == 0) cout<<"\r"<<"iCluster "<<100*double(iCluster)/(clusters->GetEntries()/reductionFactor)<<" % ";
 
     // apply cluster selections
     clusters->GetEntry(iCluster);

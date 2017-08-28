@@ -78,27 +78,7 @@ int makeLandauGausFit(TH1F* histoToFit, const int & delay, const string & subdet
 
   fitfunc->SetParameters(parameters);
   fitfunc->SetParNames("Width","MPV","Area","GSigma");
-  fitfunc->SetParLimits(0,parametersLow[0],parametersHigh[0]);
-  fitfunc->SetParLimits(1,parametersLow[1],parametersHigh[1]);
-  fitfunc->SetParLimits(2,parametersLow[2],parametersHigh[2]);
-  fitfunc->SetParLimits(3,parametersLow[3],parametersHigh[3]);
 
-  // define range for a better description of the peak                                                                                                                                                
-  if(observable == "maxCharge"){
-    if(subdet.Contains("TIB")) // TIB                                                                                                                                                  
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2.0*histoToFit->GetRMS());
-    else if(subdet.Contains("TID"))
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.2*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2.0*histoToFit->GetRMS());
-    else if(subdet.Contains("TOB")) //TOB                                                                                                                                              
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.5*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2.5*histoToFit->GetRMS());
-    else if(subdet.Contains("TECT"))
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.2*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2.25*histoToFit->GetRMS());
-    else if(subdet.Contains("TECt"))
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.2*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2.25*histoToFit->GetRMS());
-  }
-  else
-    fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.5*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+histoToFit->GetRMS()*3.0);
-  
   // make fit and get parameters                                                                                                                                                                      
   TFitResultPtr fitResult = histoToFit->Fit(fitfunc,"RSQN");
   fit_parameters = fitResult->GetParams();
