@@ -32,7 +32,7 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
   TTreeReaderValue<uint16_t> fecRing_i  (reader,"fecRing");
   TTreeReaderValue<uint16_t> ccuAdd_i    (reader,"ccuAdd");
   TTreeReaderValue<uint16_t> ccuChan_i    (reader,"ccuChan");
-  TTreeReaderValue<int>    notFound_i (reader,"notFound");
+  TTreeReaderValue<int>      notFound_i (reader,"notFound");
   TTreeReaderValue<float>    delayCorr_i (reader,"delayCorr");
   // to reconstruct the Gaussian fit vs delay for each module
   TTreeReaderValue<float>    measuredMeanAmplitude_i (reader,"measuredMeanAmplitude");
@@ -70,6 +70,7 @@ void  delayCorrectionPerModule(string fileName, string outputDIR, string outputN
     Detid = *Detid_i;
     fedCh = *fedCh_i;
     delayCorr = std::round(*delayCorr_i*24./25.)*25/24;// delay in unitis of 24/25        
+    if(delayCorr == -0) delayCorr = 0;
     outputTree->Fill();
     
     if(*notFound_i) continue;

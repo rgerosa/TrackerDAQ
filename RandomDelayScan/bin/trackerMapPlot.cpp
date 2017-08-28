@@ -5,23 +5,26 @@ using namespace std;
 
 int main(int argc, char**argv){
 
-  if(argc < 7){
-    std::cerr<<"Error in parsing parameters --> 6 are required "<<std::endl;
+  if(argc < 6){
+    std::cerr<<"Error in parsing parameters --> 5 are required "<<std::endl;
     return -1;
   }
 
   string inputFile1 = string(argv[1]);
-  string title = string(argv[2]);
-  int    isLogScale = atoi(argv[3]);
-  float  min = atof(argv[4]);
-  float  max = atof(argv[5]);
-  string outputname = string(argv[6]);
+  int    isLogScale = atoi(argv[2]);
+  float  min = atof(argv[3]);
+  float  max = atof(argv[4]);
+  string outputname = string(argv[5]);
+  string zaxisname  = "Delay (ns)";
 
   //declare the tracker map object
   edm::ParameterSet pset;
   pset.addUntrackedParameter<bool>("logScale",isLogScale);
   TrackerMap themap(pset);
-  themap.setTitle(title);
+
+  TString title ("Delay per module");
+  title.ReplaceAll("-"," ");
+  themap.setTitle(string(title.Data()));
   
   std::ifstream input1(inputFile1.c_str());
   map<uint32_t,float> map1;
@@ -41,6 +44,7 @@ int main(int argc, char**argv){
     themap.fill_current_val(imap.first,imap.second);              
   }
   
-  themap.save(true,min,max,outputname+".png",1400,800);
-  themap.save(true,min,max,outputname+".pdf",1400,800);
+  themap.save(true,min,max,outputname+".png",1500,800,zaxisname);
+  themap.save(true,min,max,outputname+".pdf",1500,800,zaxisname);
+  themap.save(true,min,max,outputname+".root",1500,800,zaxisname);
 }

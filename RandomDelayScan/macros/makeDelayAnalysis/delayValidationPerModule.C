@@ -217,9 +217,9 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
 	fitfunc->SetParameters(parameters);
 	fitfunc->SetParNames("Width","MPV","Area","GSigma");
 	fitfunc->SetParLimits(0,parametersLow[0],parametersHigh[0]);
-	fitfunc->SetParLimits(0,parametersLow[1],parametersHigh[1]);
-	fitfunc->SetParLimits(0,parametersLow[2],parametersHigh[2]);
-	fitfunc->SetParLimits(0,parametersLow[3],parametersHigh[3]);
+	fitfunc->SetParLimits(1,parametersLow[1],parametersHigh[1]);
+	fitfunc->SetParLimits(2,parametersLow[2],parametersHigh[2]);
+	fitfunc->SetParLimits(3,parametersLow[3],parametersHigh[3]);
 
 	uint32_t subdetid    = int((iMap.first-0x10000000)/0x2000000);
 	uint32_t barrellayer = int((iMap.first%33554432)/0x4000);
