@@ -15,7 +15,7 @@
 using namespace std; 
 
 // reduce the number of events by
-static int  reductionFactor = 1;
+static int  reductionFactor = 30;
 
 // create the plots in R slices 
 static std::map<int32_t, TH1F* > TIBMaxCharge;
@@ -30,62 +30,49 @@ static std::map<int32_t, TF1* > fitTOBMaxCharge;
 static std::map<int32_t, TF1* > fitTECTMaxCharge;
 static std::map<int32_t, TF1* > fitTECtMaxCharge;
 
-int makeLandauGausFit(TH1F* histoToFit, const int & delay, const string & subdetector, const string & observable){
+static std::map<int32_t, RooAbsPdf* > pdfTIBMaxCharge;
+static std::map<int32_t, RooAbsPdf* > pdfTIDMaxCharge;
+static std::map<int32_t, RooAbsPdf* > pdfTOBMaxCharge;
+static std::map<int32_t, RooAbsPdf* > pdfTECTMaxCharge;
+static std::map<int32_t, RooAbsPdf* > pdfTECtMaxCharge;
 
-  float yMin   = 0, yMax = 0;
-  int   nBinsY = 0;
-  setLimitsAndBinning(observable,yMin,yMax,nBinsY);
+TF1* makeLandauGausFit(TH1F* histoToFit, int & status, string subdetector, const float & delay, const string & observable, pair<float,RooAbsPdf*> & pair){
 
-  Double_t parameters[4];
-  Double_t parametersHigh[4];
-  Double_t parametersLow[4];
-  const Double_t *fit_parameters;
-  const Double_t *fit_parameters_error;
-  Double_t chi2;
-  Int_t    ndf;
-  // Width of the landau distribution                                                                                                                                                                
-  parameters[0] = 2.; parametersHigh[0] = 50.; parametersLow[0] = 0.001;
-  // MPV of landau peak                                                                                                                                                                               
-  parameters[1] = histoToFit->GetMean(); parametersHigh[1] = yMax; parametersLow[1] = yMin;
-  // Total area                                                                                                                                                                                       
-  parameters[2] = histoToFit->Integral(); parametersHigh[2] = histoToFit->Integral()*5; parametersLow[2] = histoToFit->Integral()/5;
-  // width of gaussian                                                                                                                                                                               
-  parameters[3] = 10; parametersHigh[3] = 40; parametersLow[3] = 1.;
+  float xMin   = 0, xMax = 0;
+  int   nBinsX = 0;
+  setLimitsAndBinning(observable,xMin,xMax,nBinsX);
 
-  // create the function                                                                                                                                                                           
-  TString subdet (subdetector);
-  TF1* fitfunc = NULL;
-  if(subdet.Contains("TIB")){
-    fitTIBMaxCharge[round(delay*10/10)]  = new TF1(Form("fit_%s",histoToFit->GetName()),langaufun,yMin,yMax,4);    
-    fitfunc = fitTIBMaxCharge[round(delay*10/10)];
-  }
-  else if(subdet.Contains("TOB")){
-    fitTOBMaxCharge[round(delay*10/10)]  = new TF1(Form("fit_%s",histoToFit->GetName()),langaufun,yMin,yMax,4);
-    fitfunc = fitTOBMaxCharge[round(delay*10/10)];
-  }
-  else if(subdet.Contains("TID")){
-    fitTIDMaxCharge[round(delay*10/10)]  = new TF1(Form("fit_%s",histoToFit->GetName()),langaufun,yMin,yMax,4);
-    fitfunc = fitTIDMaxCharge[round(delay*10/10)];
-  }
-  else if(subdet.Contains("TECT")){
-    fitTECTMaxCharge[round(delay*10/10)]  = new TF1(Form("fit_%s",histoToFit->GetName()),langaufun,yMin,yMax,4);
-    fitfunc = fitTECTMaxCharge[round(delay*10/10)];
-  }
-  else if(subdet.Contains("TECt")){
-    fitTECtMaxCharge[round(delay*10/10)]  = new TF1(Form("fit_%s",histoToFit->GetName()),langaufun,yMin,yMax,4);
-    fitfunc = fitTECtMaxCharge[round(delay*10/10)];
-  }
+  // make the observable                                                                                                                                                                            
+  RooRealVar* charge = new RooRealVar(Form("charge_%s_delay_%f",subdetector.c_str(),delay),"",xMin,xMax);
+  RooArgList*  vars  = new RooArgList(*charge);
+  // covert histogram in a RooDataHist                                                                                                                                                               
+  RooDataHist* chargeDistribution = new RooDataHist(histoToFit->GetName(),"",*vars,histoToFit);
+  // Build a Landau PDF                                                                                                                                                                              
+  RooRealVar*  mean_landau  = new RooRealVar(Form("mean_landau_%s_delay_%f",subdetector.c_str(),delay),"",histoToFit->GetMean(),xMin,xMax);
+  RooRealVar*  sigma_landau = new RooRealVar(Form("sigma_landau_%s_delay_%f",subdetector.c_str(),delay),"",histoToFit->GetRMS(),1.,100);
+  RooLandau*   landau       = new RooLandau(Form("landau_delay_%s_%f",subdetector.c_str(),delay),"",*charge,*mean_landau,*sigma_landau) ;
+  // Build a Gaussian PDF                                                                                                                                                                            
+  RooRealVar*  mean_gauss  = new RooRealVar(Form("mean_gauss_%s_delay_%f",subdetector.c_str(),delay),"",0.,-150,150);
+  RooRealVar*  sigma_gauss = new RooRealVar(Form("sigma_gauss_%s_delay_%f",subdetector.c_str(),delay),"",10,1.,50);
+  RooGaussian* gauss       = new RooGaussian(Form("gauss_%s_delay_%f",subdetector.c_str(),delay),"",*charge,*mean_gauss,*sigma_gauss);
+  // Make a convolution                                                                                                                                                                              
+  RooFFTConvPdf* landauXgauss =  new RooFFTConvPdf(Form("landauXgauss_%s_delay_%f",subdetector.c_str(),delay),"",*charge,*landau,*gauss);
+  // Make an extended PDF                                                                                                                                                                            
+  RooRealVar*   normalization = new RooRealVar(Form("normalization_%s_delay_%f",subdetector.c_str(),delay),"",histoToFit->Integral(),histoToFit->Integral()/5,histoToFit->Integral()*5);
+  RooExtendPdf* totalPdf      = new RooExtendPdf(Form("totalPdf_%s_delay_%f",subdetector.c_str(),delay),"",*landauXgauss,*normalization);
 
-  fitfunc->SetParameters(parameters);
-  fitfunc->SetParNames("Width","MPV","Area","GSigma");
+  pair.first  = delay;
+  pair.second = totalPdf;
 
-  // make fit and get parameters                                                                                                                                                                      
-  TFitResultPtr fitResult = histoToFit->Fit(fitfunc,"RSQN");
-  fit_parameters = fitResult->GetParams();
-  fit_parameters_error = fitResult->GetErrors();
-  chi2   = fitResult->Chi2();
-  ndf    = fitResult->Ndf();
-  return fitResult->Status();
+  // Perform the FIT                                                                                                                                                                                
+  RooFitResult* fitResult = totalPdf->fitTo(*chargeDistribution,RooFit::Range(xMin,xMax),RooFit::Extended(kTRUE),RooFit::Save(kTRUE));
+
+  // convert the pdf as a TF1                                                                                                                                                                        
+  RooArgList pars = fitResult->floatParsFinal();
+  status = fitResult->status();
+
+  return totalPdf->asTF(*charge,pars,*charge);
+
 }
 
 
@@ -135,7 +122,6 @@ void paritionPlots(TTree* tree,
   setLimitsAndBinning(observable,yMin,yMax,nBinsY);
   
   cout<<"#### Run over the events"<<endl;
-
   // create vectors  std::cout<<"Tree with nEntries "<<tree->GetEntries()<<std::endl;
   long int iEvent = 0;
   for( ; iEvent < tree->GetEntries()/reductionFactor; iEvent++){    
@@ -189,56 +175,59 @@ void paritionPlots(TTree* tree,
 
   std::cout<<"Make a fit of the cluster charge or S/N for TIB "<<endl;
   long int iBadChannelFit = 0;
+  RooAbsPdf* pdf = NULL;
+  TF1* fitfunc = NULL;
+  pair<float,RooAbsPdf*> pair; 
   for(auto imap : TIBMaxCharge){ // loop on the different 
-    // normalize to 1
-    //    imap.second->Scale(1./imap.second->Integral());
-    int status = makeLandauGausFit(imap.second,imap.first,"TIB",observable);
-    if(status != 0)
-      iBadChannelFit++;
+    int status = -1;
+    fitfunc = makeLandauGausFit(imap.second,status,"TIB",imap.first,observable,pair);
+    pdfTIBMaxCharge[imap.first] = pair.second;
+    fitTIBMaxCharge[imap.first] = fitfunc;    
+    if(status != 0) iBadChannelFit++;
   }  
   std::cout<<"Bad channel fit from Landau+Gaus fit in TIB for each delay "<<iBadChannelFit<<" over "<<TIBMaxCharge.size()<<std::endl;
 
   std::cout<<"Make a fit of the cluster charge or S/N for TOB "<<endl;
   iBadChannelFit = 0;
   for(auto imap : TOBMaxCharge){ // loop on the different 
-    // normalize to 1
-    //    imap.second->Scale(1./imap.second->Integral());
-    int status = makeLandauGausFit(imap.second,imap.first,"TOB",observable);
-    if(status != 0)
-      iBadChannelFit++;
+    int status = -1;
+    fitfunc = makeLandauGausFit(imap.second,status,"TOB",imap.first,observable,pair);
+    pdfTOBMaxCharge[imap.first] = pair.second;
+    fitTOBMaxCharge[imap.first] = fitfunc;    
+    if(status != 0) iBadChannelFit++;
   }  
   std::cout<<"Bad channel fit from Landau+Gaus fit in TOB for each delay "<<iBadChannelFit<<" over "<<TOBMaxCharge.size()<<std::endl;
 
   std::cout<<"Make a fit of the cluster charge or S/N for TID "<<endl;
   iBadChannelFit = 0;
   for(auto imap : TIDMaxCharge){ // loop on the different 
-    // normalize to 1
-    //    imap.second->Scale(1./imap.second->Integral());
-    int status = makeLandauGausFit(imap.second,imap.first,"TID",observable);
-    if(status != 0)
-      iBadChannelFit++;
+    int status = -1;
+    fitfunc = makeLandauGausFit(imap.second,status,"TID",imap.first,observable,pair);
+    pdfTIDMaxCharge[imap.first] = pair.second;
+    fitTIDMaxCharge[imap.first] = fitfunc;    
+    if(status != 0) iBadChannelFit++;
   }  
   std::cout<<"Bad channel fit from Landau+Gaus fit in TID for each delay "<<iBadChannelFit<<" over "<<TIDMaxCharge.size()<<std::endl;
 
   std::cout<<"Make a fit of the cluster charge or S/N for TECT "<<endl;
   iBadChannelFit = 0;
   for(auto imap : TECTMaxCharge){ // loop on the different 
-    // normalize to 1
-    //    imap.second->Scale(1./imap.second->Integral());
-    int status = makeLandauGausFit(imap.second,imap.first,"TECT",observable);
-    if(status != 0)
-      iBadChannelFit++;
+    int status = -1;
+    fitfunc = makeLandauGausFit(imap.second,status,"TECT",imap.first,observable,pair);
+    pdfTECTMaxCharge[imap.first] = pair.second;
+    fitTECTMaxCharge[imap.first] = fitfunc;    
+    if(status != 0) iBadChannelFit++;
   }  
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECT for each delay "<<iBadChannelFit<<" over "<<TECTMaxCharge.size()<<std::endl;
 
   std::cout<<"Make a fit of the cluster charge or S/N for TECt "<<endl;
   iBadChannelFit = 0;
   for(auto imap : TECtMaxCharge){ // loop on the different 
-    // normalize to 1
-    //    imap.second->Scale(1./imap.second->Integral());
-    int status = makeLandauGausFit(imap.second,imap.first,"TECt",observable);
-    if(status != 0)
-      iBadChannelFit++;
+    int status = -1;
+    fitfunc = makeLandauGausFit(imap.second,status,"TECT",imap.first,observable,pair);
+    pdfTECtMaxCharge[imap.first] = pair.second;
+    fitTECtMaxCharge[imap.first] = fitfunc;    
+    if(status != 0) iBadChannelFit++;
   }  
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECt for each delay "<<iBadChannelFit<<" over "<<TECtMaxCharge.size()<<std::endl;
   
