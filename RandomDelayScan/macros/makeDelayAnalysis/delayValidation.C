@@ -19,147 +19,167 @@ static bool isGaussian = true;
 // reduce the number of events by
 static int  reductionFactor = 1;
 
-static std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > TIBlayers; // map layer:delay:distribution
-static std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > TOBlayers;
-static std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > TIDlayers;
-static std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > TECPTlayers;
-static std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > TECPtlayers;
-static std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > TECMTlayers;
-static std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > TECMtlayers;
-
-static std::map<uint32_t,std::shared_ptr<TH1F> > TIBlayersMean; // map delay:distribution
-static std::map<uint32_t,std::shared_ptr<TH1F> > TOBlayersMean;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TIDlayersMean;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TECPTlayersMean;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TECPtlayersMean;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TECMTlayersMean;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TECMtlayersMean;
-
-static std::map<uint32_t,std::shared_ptr<TH1F> > TIBlayersMPV; // map delay:distribution
-static std::map<uint32_t,std::shared_ptr<TH1F> > TOBlayersMPV;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TIDlayersMPV;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TECPTlayersMPV;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TECPtlayersMPV;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TECMTlayersMPV;
-static std::map<uint32_t,std::shared_ptr<TH1F> > TECMtlayersMPV;
-
 static TFile*   outputFitFile = NULL;
 static TCanvas* outputCanvasFit = NULL;
 
 int makeLandauGausFit(TH1F* histoToFit, TH1F* histoToFill, string subdetector, const float & delay, const string & observable, const string & outputDIR, const string & postfix = ""){
 
-  float yMin   = 0, yMax = 0;
-  int   nBinsY = 0;
-  setLimitsAndBinning(observable,yMin,yMax,nBinsY);
+  float xMin   = 0, xMax = 0;
+  int   nBinsX = 0;
+  setLimitsAndBinning(observable,xMin,xMax,nBinsX);
 
   if(outputCanvasFit == NULL or outputCanvasFit == 0)
     outputCanvasFit = new TCanvas("canvas","",600,625);
 
   if(outputFitFile == NULL or outputFitFile == 0)
     outputFitFile = new TFile((outputDIR+"/outputFitCanvases_"+observable+"_"+postfix+".root").c_str(),"RECREATE");
-  
-  outputCanvasFit->SetTickx();
-  outputCanvasFit->SetTicky();
+
   outputFitFile->cd();
 
-  Double_t parameters[4];
-  Double_t parametersHigh[4];
-  Double_t parametersLow[4];
-  const Double_t *fit_parameters;
-  const Double_t *fit_parameters_error;
-  Double_t chi2;
-  Int_t    ndf;
-  // Width of the landau distribution                                                                                                                                      
-  parameters[0] = 2.; parametersHigh[0] = 50.; parametersLow[0] = 0.001;
-  // MPV of landau peak                                                                                                                                                    
-  parameters[1] = histoToFit->GetMean(); parametersHigh[1] = yMax; parametersLow[1] = yMin;
-  // Total area                                                                                                                                                            
-  parameters[2] = histoToFit->Integral(); parametersHigh[2] = histoToFit->Integral()*5; parametersLow[2] = histoToFit->Integral()/5;
-  // width of gaussian                                                                                                                                                     
-  parameters[3] = 10; parametersHigh[3] = 40; parametersLow[3] = 1.;
-  
-      // create the function                                                                                                                                                   
-  TF1 *    fitfunc = new TF1(Form("fit_%s",histoToFit->GetName()),langaufun,yMin,yMax,4);
-  fitfunc->SetParameters(parameters);
-  fitfunc->SetParNames("Width","MPV","Area","GSigma");
-  fitfunc->SetParLimits(0,parametersLow[0],parametersHigh[0]);
-  fitfunc->SetParLimits(1,parametersLow[1],parametersHigh[1]);
-  fitfunc->SetParLimits(2,parametersLow[2],parametersHigh[2]);
-  fitfunc->SetParLimits(3,parametersLow[3],parametersHigh[3]);
+  // make the observable                                                                                                                                                                             
+  RooRealVar* charge = new RooRealVar("charge","",xMin,xMax);
+  RooArgList* vars   = new RooArgList(*charge);
+  // covert histogram in a RooDataHist                                                                                                                                                               
+  RooDataHist* chargeDistribution = new RooDataHist(histoToFit->GetName(),"",*vars,histoToFit);
+  // Build a Landau PDF                                                                                                                                                                              
+  RooRealVar*  mean_landau  = new RooRealVar("mean_landau","",histoToFit->GetRMS(),1.,100);
+  RooRealVar*  sigma_landau = new RooRealVar("sigma_landau","",histoToFit->GetRMS(),1.,100);
+  RooLandau*   landau       = new RooLandau("landau","",*charge,*mean_landau,*sigma_landau);
+  // Build a Gaussian PDF                                                                                                                                                                            
+  RooRealVar*  mean_gauss  = new RooRealVar("mean_gauss","",0.,-150,150);
+  RooRealVar*  sigma_gauss = new RooRealVar("sigma_gauss","",10,1.,50);
+  RooGaussian* gauss       = new RooGaussian("gauss","",*charge,*mean_gauss,*sigma_gauss);
+  // Make a convolution                                                                                                                                                                              
+  RooFFTConvPdf* landauXgauss = new RooFFTConvPdf("landauXgauss","",*charge,*landau,*gauss);
+  // Make an extended PDF                                                                                                                                                                            
+  RooRealVar*   normalization = new RooRealVar("normalization","",histoToFit->Integral(),histoToFit->Integral()/5,histoToFit->Integral()*5);
+  RooExtendPdf* totalPdf      = new RooExtendPdf("totalPdf","",*landauXgauss,*normalization);
 
-  // define range for a better description of the peak                                                                                                                     
-  if(observable == "maxCharge"){
-    if(TString(subdetector).Contains("TIB")){ // TIB                                                                                                                        
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2*histoToFit->GetRMS());
-    }
-    else if(TString(subdetector).Contains("TID")) // TID                                                                                                                  
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2*histoToFit->GetRMS());
-    else if(TString(subdetector).Contains("TOB")){ //TOB                                                                                                   
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.2*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2.2*histoToFit->GetRMS());
-    }
-    else if(TString(subdetector).Contains("TECInner"))
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2.0*histoToFit->GetRMS());
-    else if(TString(subdetector).Contains("TECOuter"))
-      fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.2*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+2.2*histoToFit->GetRMS());
-  }
-  else
-    fitfunc->SetRange(histoToFit->GetBinCenter(histoToFit->GetMaximumBin())-1.5*histoToFit->GetRMS(),histoToFit->GetBinCenter(histoToFit->GetMaximumBin())+histoToFit->GetRMS()*3.0);
+  // Perform the FIT                                                                                                                                                                                 
+  RooFitResult* fitResult = totalPdf->fitTo(*chargeDistribution,RooFit::Range(xMin,xMax),RooFit::Extended(kTRUE),RooFit::Save(kTRUE));
+
+  // get parameters
+  RooArgList pars = fitResult->floatParsFinal();
+  TF1* fitfunc = totalPdf->asTF(*charge,pars,*charge);
   
-  // make fit and get parameters                                                                                                                                           
-  TFitResultPtr fitResult = histoToFit->Fit(fitfunc,"RQSN");
-  if(not fitResult.Get() or fitResult->Status() != 0 or fitResult->CovMatrixStatus() <= 1){
+  if(fitResult->status() != 0 or fitResult->covQual() <= 1){
     histoToFill->SetBinContent(histoToFill->FindBin(delay),histoToFit->GetBinCenter(histoToFit->GetMaximumBin()));
     histoToFill->SetBinError(histoToFill->FindBin(delay),histoToFit->GetMeanError());
     return -1;
   }
-  else{
-    fit_parameters = fitResult->GetParams();
-    fit_parameters_error = fitResult->GetErrors();
-    chi2   = fitResult->Chi2();
-    ndf    = fitResult->Ndf();
-    histoToFill->SetBinContent(histoToFill->FindBin(delay),fitfunc->GetMaximumX(yMin,yMax));
-    histoToFill->SetBinError(histoToFill->FindBin(delay),fit_parameters_error[1]);
+  else{    
+    histoToFill->SetBinContent(histoToFill->FindBin(delay),fitfunc->GetMaximumX(xMin,xMax));
+    histoToFill->SetBinError(histoToFill->FindBin(delay),mean_landau->getError());
   }
-  //draw fit
-  // plot to store in a root file                                                                                                                                      
+  
+  // plot to store in a root file                          
   outputCanvasFit->cd();
-  histoToFit->GetYaxis()->SetTitle("Events");
-  histoToFit->GetXaxis()->SetTitle(("Cluster "+observable).c_str());
-  histoToFit->GetYaxis()->SetTitleSize(0.045);
-  histoToFit->GetXaxis()->SetTitleSize(0.045);
-  histoToFit->GetYaxis()->SetLabelSize(0.038);
-  histoToFit->GetXaxis()->SetLabelSize(0.038);
+  TH1* frame = (TH1*) histoToFit->Clone(Form("frame_%s",histoToFit->GetName()));
+  frame->Reset();
+  frame->GetYaxis()->SetTitle("a.u.");
+  if(observable == "maxCharge")
+    frame->GetXaxis()->SetTitle("Leading strip charge (ADC)");
+  else
+    frame->GetXaxis()->SetTitle("Signal over Noise");
+  
+  frame->GetXaxis()->SetTitleOffset(1.1);
+  frame->GetYaxis()->SetTitleOffset(1.1);
+  frame->GetYaxis()->SetTitleSize(0.040);
+  frame->GetXaxis()->SetTitleSize(0.040);
+  frame->GetYaxis()->SetLabelSize(0.035);
+  frame->GetXaxis()->SetLabelSize(0.035);
+  frame->Draw();
+
   histoToFit->SetMarkerColor(kBlack);
+  histoToFit->SetMarkerSize(1);
   histoToFit->SetMarkerStyle(20);
-  histoToFit->Draw("EP");
-  fitfunc->SetLineWidth(2);
+  histoToFit->SetLineColor(kBlack);
+  // convert the pdf as a TF1                                                                                                                                                                        
+  //Divide the histogram by the bin width                                                                                                                                                            
+  histoToFit->Scale(1./histoToFit->Integral(),"width");
+
   fitfunc->SetLineColor(kRed);
-  fitfunc->Draw("same");
+  fitfunc->SetLineWidth(2);
+  fitfunc->Draw("Lsame");
   histoToFit->Draw("EPsame");
-  TLegend leg (0.6,0.6,0.95,0.92);
+  frame->GetYaxis()->SetRangeUser(0,histoToFit->GetMaximum()*1.5);
+  CMS_lumi(outputCanvasFit,"",false);
+
+  TPaveText leg (0.55,0.55,0.9,0.80,"NDC");
+  leg.SetTextAlign(11);
+  leg.SetTextFont(42);
   leg.SetFillColor(0);
   leg.SetFillStyle(0);
-  leg.SetBorderSize(0);
-  leg.AddEntry((TObject*)0,Form("#chi^{2}/ndf = %.2f",chi2/ndf),"");
-  leg.AddEntry((TObject*)0,Form("Pdf Max = %.2f",fitfunc->GetMaximumX(yMin,yMax)),"");
-  leg.AddEntry((TObject*)0,Form("Landau MPV = %.2f #pm %.2f",fit_parameters[1],fit_parameters_error[1]),"");
-  leg.AddEntry((TObject*)0,Form("Landau Width = %.2f #pm %.2f",fit_parameters[0],fit_parameters_error[0]),"");
-  leg.AddEntry((TObject*)0,Form("Gaussian #sigma = %.2f #pm %.2f",fit_parameters[3],fit_parameters_error[3]),"");
-  leg.AddEntry((TObject*)0,Form("Normalization = %.2f #pm %.2f",fit_parameters[2],fit_parameters_error[2]),"");
+  leg.AddText("");
+  leg.AddText(Form("Landau Mean  = %.1f #pm %.1f",mean_landau->getVal(),mean_landau->getError()));
+  leg.AddText(Form("Landau Width = %.1f #pm %.1f",sigma_landau->getVal(),sigma_landau->getError()));
+  leg.AddText(Form("Gauss Mean  = %.1f #pm %.1f",mean_gauss->getVal(),mean_gauss->getError()));
+  leg.AddText(Form("Gauss Width = %.1f #pm %.1f",sigma_gauss->getVal(),sigma_gauss->getError()));
+  leg.AddText(Form("Integral = %.1f #pm %.1f",normalization->getVal(),normalization->getError()));
+
+  // to calculate the chi2                                                                                                                                                                           
+  RooPlot* rooframe = charge->frame();
+  chargeDistribution->plotOn(rooframe);
+  totalPdf->plotOn(rooframe);
+  float chi2 = rooframe->chiSquare(pars.getSize());
+  leg.AddText(Form("#chi2/ndf = %.3f",chi2));
   leg.Draw("same");
+
   outputCanvasFit->Modified();
-  CMS_lumi(outputCanvasFit,"");
   outputCanvasFit->Write(histoToFit->GetName());
+
+  int status = fitResult->status();
+
+  if(totalPdf) delete totalPdf;
+  if(landauXgauss) delete landauXgauss;
+  if(gauss) delete gauss;
+  if(landau) delete landau;
+  if(chargeDistribution) delete chargeDistribution;
+  if(normalization) delete normalization;
+  if(sigma_gauss) delete sigma_gauss;
+  if(mean_gauss) delete mean_gauss;
+  if(mean_landau) delete mean_landau;
+  if(sigma_landau) delete sigma_landau;
+  if(charge) delete charge;
+  if(fitResult) delete fitResult;
+  if(vars) delete vars;
+  if(fitfunc) delete fitfunc;
+  if(rooframe) delete rooframe;
     
-  return fitResult->Status();
+  return status;
+
 }
+
+static std::map<uint32_t,std::map<float,TH1F* > > TIBlayers; // map layer:delay:distribution
+static std::map<uint32_t,std::map<float,TH1F* > > TOBlayers;
+static std::map<uint32_t,std::map<float,TH1F* > > TIDlayers;
+static std::map<uint32_t,std::map<float,TH1F* > > TECPTlayers;
+static std::map<uint32_t,std::map<float,TH1F* > > TECPtlayers;
+static std::map<uint32_t,std::map<float,TH1F* > > TECMTlayers;
+static std::map<uint32_t,std::map<float,TH1F* > > TECMtlayers;
+
+static std::map<uint32_t,TH1F* > TIBlayersMean; // map delay:distribution
+static std::map<uint32_t,TH1F* > TOBlayersMean;
+static std::map<uint32_t,TH1F* > TIDlayersMean;
+static std::map<uint32_t,TH1F* > TECPTlayersMean;
+static std::map<uint32_t,TH1F* > TECPtlayersMean;
+static std::map<uint32_t,TH1F* > TECMTlayersMean;
+static std::map<uint32_t,TH1F* > TECMtlayersMean;
+
+static std::map<uint32_t,TH1F* > TIBlayersMPV; // map delay:distribution
+static std::map<uint32_t,TH1F* > TOBlayersMPV;
+static std::map<uint32_t,TH1F* > TIDlayersMPV;
+static std::map<uint32_t,TH1F* > TECPTlayersMPV;
+static std::map<uint32_t,TH1F* > TECPtlayersMPV;
+static std::map<uint32_t,TH1F* > TECMTlayersMPV;
+static std::map<uint32_t,TH1F* > TECMtlayersMPV;
 
 
 
 /// function that runs on the evnet and produce profiles for layers
-void LayerPlots(const std::shared_ptr<TTree> & tree, 
-		const std::shared_ptr<TTree> & map,
-		const std::shared_ptr<TTree> & corrections,
+void LayerPlots(TTree* tree, 
+		TTree* map,
+		TTree* corrections,
 		const string & observable,
 		const string & outputDIR) {
 
@@ -236,44 +256,44 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
 
     // fill the maps
     if(subdetid == 3){
-      if(TIBlayers[barrellayer][delay-correction].get() == 0 or TIBlayers[barrellayer][delay-correction].get() == NULL) 
-	TIBlayers[barrellayer][delay-correction] = std::shared_ptr<TH1F> (new TH1F(Form("TIB_layer_%d_delay_%.1f",barrellayer,delay-correction),"",nBinsY,yMin,yMax));
+      if(TIBlayers[barrellayer][delay-correction] == 0 or TIBlayers[barrellayer][delay-correction] == NULL) 
+	TIBlayers[barrellayer][delay-correction] = new TH1F(Form("TIB_layer_%d_delay_%.1f",barrellayer,delay-correction),"",nBinsY,yMin,yMax);
       TH1::AddDirectory(kFALSE);
       TIBlayers[barrellayer][delay-correction]->Fill(value);
     }
     else if(subdetid == 5){
-      if(TOBlayers[barrellayer][delay-correction].get() == 0 or TOBlayers[barrellayer][delay-correction].get() == NULL) 
-	TOBlayers[barrellayer][delay-correction] = std::shared_ptr<TH1F> (new TH1F(Form("TOB_layer_%d_delay_%.1f",barrellayer,delay-correction),"",nBinsY,yMin,yMax));
+      if(TOBlayers[barrellayer][delay-correction] == 0 or TOBlayers[barrellayer][delay-correction] == NULL) 
+	TOBlayers[barrellayer][delay-correction] = new TH1F(Form("TOB_layer_%d_delay_%.1f",barrellayer,delay-correction),"",nBinsY,yMin,yMax);
       TH1::AddDirectory(kFALSE);
       TOBlayers[barrellayer][delay-correction]->Fill(value);
     }
     else if(subdetid == 4){
-      if(TIDlayers[TIDlayer][delay-correction].get() == 0 or TIDlayers[TIDlayer][delay-correction].get() == NULL) 
-	TIDlayers[TIDlayer][delay-correction] = std::shared_ptr<TH1F> (new TH1F(Form("TID_layer_%d_delay_%.1f",TIDlayer,delay-correction),"",nBinsY,yMin,yMax));
+      if(TIDlayers[TIDlayer][delay-correction] == 0 or TIDlayers[TIDlayer][delay-correction] == NULL) 
+	TIDlayers[TIDlayer][delay-correction] = new TH1F(Form("TID_layer_%d_delay_%.1f",TIDlayer,delay-correction),"",nBinsY,yMin,yMax);
       TH1::AddDirectory(kFALSE);
       TIDlayers[TIDlayer][delay-correction]->Fill(value);
     }
     else if(subdetid == 6  and clglobalZ > 0 and thickness > 400){
-      if(TECPTlayers[TECPlayer][delay-correction].get() == 0 or TECPTlayers[TECPlayer][delay-correction].get() == NULL) 
-	TECPTlayers[TECPlayer][delay-correction] = std::shared_ptr<TH1F> (new TH1F(Form("TECPT_layer_%d_delay_%.1f",TECPlayer,delay-correction),"",nBinsY,yMin,yMax));
+      if(TECPTlayers[TECPlayer][delay-correction] == 0 or TECPTlayers[TECPlayer][delay-correction] == NULL) 
+	TECPTlayers[TECPlayer][delay-correction] = new TH1F(Form("TECPT_layer_%d_delay_%.1f",TECPlayer,delay-correction),"",nBinsY,yMin,yMax);
       TH1::AddDirectory(kFALSE);
       TECPTlayers[TECPlayer][delay-correction]->Fill(value);
     }
     else if(subdetid == 6  and clglobalZ > 0 and thickness < 400){
-      if(TECPtlayers[TECPlayer][delay-correction].get() == 0 or TECPtlayers[TECPlayer][delay-correction].get() == NULL) 
-	TECPtlayers[TECPlayer][delay-correction] = std::shared_ptr<TH1F> (new TH1F(Form("TECPt_layer_%d_delay_%.1f",TECPlayer,delay-correction),"",nBinsY,yMin,yMax));
+      if(TECPtlayers[TECPlayer][delay-correction] == 0 or TECPtlayers[TECPlayer][delay-correction] == NULL) 
+	TECPtlayers[TECPlayer][delay-correction] = new TH1F(Form("TECPt_layer_%d_delay_%.1f",TECPlayer,delay-correction),"",nBinsY,yMin,yMax);
       TH1::AddDirectory(kFALSE);
       TECPtlayers[TECPlayer][delay-correction]->Fill(value);
     }
     else if(subdetid == 6  and clglobalZ < 0 and thickness > 400){
-      if(TECMTlayers[TECMlayer][delay-correction].get() == 0 or TECMTlayers[TECMlayer][delay-correction].get() == NULL) 
-	TECMTlayers[TECMlayer][delay-correction] = std::shared_ptr<TH1F> (new TH1F(Form("TECMT_layer_%d_delay_%.1f",TECMlayer,delay-correction),"",nBinsY,yMin,yMax));
+      if(TECMTlayers[TECMlayer][delay-correction] == 0 or TECMTlayers[TECMlayer][delay-correction] == NULL) 
+	TECMTlayers[TECMlayer][delay-correction] = new TH1F(Form("TECMT_layer_%d_delay_%.1f",TECMlayer,delay-correction),"",nBinsY,yMin,yMax);
       TH1::AddDirectory(kFALSE);
       TECMTlayers[TECMlayer][delay-correction]->Fill(value);
     }
     else if(subdetid == 6  and clglobalZ < 0 and thickness < 400){
-      if(TECMtlayers[TECMlayer][delay-correction].get() == 0 or TECMtlayers[TECMlayer][delay-correction].get() == NULL) 
-	TECMtlayers[TECMlayer][delay-correction] = std::shared_ptr<TH1F> (new TH1F(Form("TECMt_layer_%d_delay_%.1f",TECMlayer,delay-correction),"",nBinsY,yMin,yMax));
+      if(TECMtlayers[TECMlayer][delay-correction] == 0 or TECMtlayers[TECMlayer][delay-correction] == NULL) 
+	TECMtlayers[TECMlayer][delay-correction] = new TH1F(Form("TECMt_layer_%d_delay_%.1f",TECMlayer,delay-correction),"",nBinsY,yMin,yMax);
       TH1::AddDirectory(kFALSE);
       TECMtlayers[TECMlayer][delay-correction]->Fill(value);
     }
@@ -285,11 +305,11 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
   std::cout<<"Build the mean and MPV distributions asaf of delay "<<endl;
   long int iBadChannelFit = 0;
   for(auto imap : TIBlayers){ // loop on the different layer
-    if(TIBlayersMean[imap.first].get() == 0 or TIBlayersMean[imap.first].get() == NULL)
-      TIBlayersMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TIB_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TIBlayersMean[imap.first] == 0 or TIBlayersMean[imap.first] == NULL)
+      TIBlayersMean[imap.first] = new TH1F(Form("TIB_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TIBlayersMPV[imap.first].get() == 0 or TIBlayersMPV[imap.first].get() == NULL)
-      TIBlayersMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TIB_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TIBlayersMPV[imap.first] == 0 or TIBlayersMPV[imap.first] == NULL)
+      TIBlayersMPV[imap.first] = new TH1F(Form("TIB_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -297,20 +317,19 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
       TIBlayersMean[imap.first]->SetBinContent(TIBlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TIBlayersMean[imap.first]->SetBinError(TIBlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
       
-      int status = makeLandauGausFit(idelay.second.get(),TIBlayersMPV[imap.first].get(),"TIB",idelay.first,observable,outputDIR);
-      if(status != 0)
-	iBadChannelFit++;            
+      int status = makeLandauGausFit(idelay.second,TIBlayersMPV[imap.first],"TIB",idelay.first,observable,outputDIR);
+      if(status != 0) iBadChannelFit++;            
       
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TIB layers "<<iBadChannelFit<<" over "<<TIBlayers.size()*TIBlayers[1].size()<<std::endl;  
   iBadChannelFit = 0;
   for(auto imap : TOBlayers){ // loop on the different layer
-    if(TOBlayersMean[imap.first].get() == 0 or TOBlayersMean[imap.first].get() == NULL)
-      TOBlayersMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TOB_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TOBlayersMean[imap.first] == 0 or TOBlayersMean[imap.first] == NULL)
+      TOBlayersMean[imap.first] = new TH1F(Form("TOB_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TOBlayersMPV[imap.first].get() == 0 or TOBlayersMPV[imap.first].get() == NULL)
-      TOBlayersMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TOB_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TOBlayersMPV[imap.first] == 0 or TOBlayersMPV[imap.first] == NULL)
+      TOBlayersMPV[imap.first] = new TH1F(Form("TOB_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -318,19 +337,18 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
       TOBlayersMean[imap.first]->SetBinContent(TOBlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TOBlayersMean[imap.first]->SetBinError(TOBlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TOBlayersMPV[imap.first].get(),"TOB",idelay.first,observable,outputDIR);
-      if(status != 0)
-	iBadChannelFit++;      
+      int status = makeLandauGausFit(idelay.second,TOBlayersMPV[imap.first],"TOB",idelay.first,observable,outputDIR);
+      if(status != 0) iBadChannelFit++;      
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TOB layers "<<iBadChannelFit<<" over "<<TOBlayers.size()*TOBlayers[1].size()<<std::endl;  
   iBadChannelFit = 0;
   for(auto imap : TIDlayers){ // loop on the different layer
-    if(TIDlayersMean[imap.first].get() == 0 or TIDlayersMean[imap.first].get() == NULL)
-      TIDlayersMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TID_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TIDlayersMean[imap.first] == 0 or TIDlayersMean[imap.first] == NULL)
+      TIDlayersMean[imap.first] = new TH1F(Form("TID_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TIDlayersMPV[imap.first].get() == 0 or TIDlayersMPV[imap.first].get() == NULL)
-      TIDlayersMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TID_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TIDlayersMPV[imap.first] == 0 or TIDlayersMPV[imap.first] == NULL)
+      TIDlayersMPV[imap.first] = new TH1F(Form("TID_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -338,20 +356,19 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
       TIDlayersMean[imap.first]->SetBinContent(TIDlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TIDlayersMean[imap.first]->SetBinError(TIDlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TIDlayersMPV[imap.first].get(),"TID",idelay.first,observable,outputDIR);
-      if(status != 0)
-	iBadChannelFit++;      
+      int status = makeLandauGausFit(idelay.second,TIDlayersMPV[imap.first],"TID",idelay.first,observable,outputDIR);
+      if(status != 0) iBadChannelFit++;      
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TID layers "<<iBadChannelFit<<" over "<<TIDlayers.size()*TIDlayers[1].size()<<std::endl;  
 
   iBadChannelFit = 0;
   for(auto imap : TECPTlayers){ // loop on the different layer
-    if(TECPTlayersMean[imap.first].get() == 0 or TECPTlayersMean[imap.first].get() == NULL)
-      TECPTlayersMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECPT_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECPTlayersMean[imap.first] == 0 or TECPTlayersMean[imap.first] == NULL)
+      TECPTlayersMean[imap.first] = new TH1F(Form("TECPT_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TECPTlayersMPV[imap.first].get() == 0 or TECPTlayersMPV[imap.first].get() == NULL)
-      TECPTlayersMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECPT_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECPTlayersMPV[imap.first] == 0 or TECPTlayersMPV[imap.first] == NULL)
+      TECPTlayersMPV[imap.first] = new TH1F(Form("TECPT_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -359,20 +376,19 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
       TECPTlayersMean[imap.first]->SetBinContent(TECPTlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TECPTlayersMean[imap.first]->SetBinError(TECPTlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TECPTlayersMPV[imap.first].get(),"TECOuter",idelay.first,observable,outputDIR);
-      if(status != 0)
-	iBadChannelFit++;      
+      int status = makeLandauGausFit(idelay.second,TECPTlayersMPV[imap.first],"TECOuter",idelay.first,observable,outputDIR);
+      if(status != 0) iBadChannelFit++;      
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECPT layers "<<iBadChannelFit<<" over "<<TECPTlayers.size()*TECPTlayers[1].size()<<std::endl;  
 
   iBadChannelFit = 0;
   for(auto imap : TECPtlayers){ // loop on the different layer
-    if(TECPtlayersMean[imap.first].get() == 0 or TECPtlayersMean[imap.first].get() == NULL)
-      TECPtlayersMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECPt_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECPtlayersMean[imap.first] == 0 or TECPtlayersMean[imap.first] == NULL)
+      TECPtlayersMean[imap.first] = new TH1F(Form("TECPt_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TECPtlayersMPV[imap.first].get() == 0 or TECPtlayersMPV[imap.first].get() == NULL)
-      TECPtlayersMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECPt_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECPtlayersMPV[imap.first] == 0 or TECPtlayersMPV[imap.first] == NULL)
+      TECPtlayersMPV[imap.first] = new TH1F(Form("TECPt_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -380,20 +396,19 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
       TECPtlayersMean[imap.first]->SetBinContent(TECPtlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TECPtlayersMean[imap.first]->SetBinError(TECPtlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TECPtlayersMPV[imap.first].get(),"TECInner",idelay.first,observable,outputDIR);
-      if(status != 0)
-	iBadChannelFit++;      
+      int status = makeLandauGausFit(idelay.second,TECPtlayersMPV[imap.first],"TECInner",idelay.first,observable,outputDIR);
+      if(status != 0) iBadChannelFit++;      
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECPt layers "<<iBadChannelFit<<" over "<<TECPtlayers.size()*TECPtlayers[1].size()<<std::endl;  
 
   iBadChannelFit = 0;
   for(auto imap : TECMTlayers){ // loop on the different layer
-    if(TECMTlayersMean[imap.first].get() == 0 or TECMTlayersMean[imap.first].get() == NULL)
-      TECMTlayersMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECMT_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECMTlayersMean[imap.first] == 0 or TECMTlayersMean[imap.first] == NULL)
+      TECMTlayersMean[imap.first] = new TH1F(Form("TECMT_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TECMTlayersMPV[imap.first].get() == 0 or TECMTlayersMPV[imap.first].get() == NULL)
-      TECMTlayersMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECMT_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECMTlayersMPV[imap.first] == 0 or TECMTlayersMPV[imap.first] == NULL)
+      TECMTlayersMPV[imap.first] = new TH1F(Form("TECMT_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -401,20 +416,19 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
       TECMTlayersMean[imap.first]->SetBinContent(TECMTlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TECMTlayersMean[imap.first]->SetBinError(TECMTlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TECMTlayersMPV[imap.first].get(),"TECOuter",idelay.first,observable,outputDIR);
-      if(status != 0)
-	iBadChannelFit++;      
+      int status = makeLandauGausFit(idelay.second,TECMTlayersMPV[imap.first],"TECOuter",idelay.first,observable,outputDIR);
+      if(status != 0) iBadChannelFit++;      
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECMT layers "<<iBadChannelFit<<" over "<<TECMTlayers.size()*TECMTlayers[1].size()<<std::endl;  
 
   iBadChannelFit = 0;
   for(auto imap : TECMtlayers){ // loop on the different layer
-    if(TECMtlayersMean[imap.first].get() == 0 or TECMtlayersMean[imap.first].get() == NULL)
-      TECMtlayersMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECMt_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECMtlayersMean[imap.first] == 0 or TECMtlayersMean[imap.first] == NULL)
+      TECMtlayersMean[imap.first] = new TH1F(Form("TECMt_layer_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TECMtlayersMPV[imap.first].get() == 0 or TECMtlayersMPV[imap.first].get() == NULL)
-      TECMtlayersMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECMt_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECMtlayersMPV[imap.first] == 0 or TECMtlayersMPV[imap.first] == NULL)
+      TECMtlayersMPV[imap.first] = new TH1F(Form("TECMt_layer_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -422,9 +436,8 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
       TECMtlayersMean[imap.first]->SetBinContent(TECMtlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TECMtlayersMean[imap.first]->SetBinError(TECMtlayersMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TECMtlayersMPV[imap.first].get(),"TECInner",idelay.first,observable,outputDIR);
-      if(status != 0)
-	iBadChannelFit++;      
+      int status = makeLandauGausFit(idelay.second,TECMtlayersMPV[imap.first],"TECInner",idelay.first,observable,outputDIR);
+      if(status != 0) iBadChannelFit++;      
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECMt layers "<<iBadChannelFit<<" over "<<TECMtlayers.size()*TECMtlayers[1].size()<<std::endl;  
@@ -605,57 +618,57 @@ void LayerPlots(const std::shared_ptr<TTree> & tree,
 }
 
 // create the plots in R slices 
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TIBrs;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TIDrs;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TOBrs;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TECPTrs;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TECPtrs;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TECMTrs;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TECMtrs;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TIB;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TID;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TOB;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TECPT;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TECPt;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TECMT;
-static std::map<uint32_t, std::map<float,std::shared_ptr<TH1F> > > TECMt;
+static std::map<uint32_t, std::map<float,TH1F* > > TIBrs;
+static std::map<uint32_t, std::map<float,TH1F* > > TIDrs;
+static std::map<uint32_t, std::map<float,TH1F* > > TOBrs;
+static std::map<uint32_t, std::map<float,TH1F* > > TECPTrs;
+static std::map<uint32_t, std::map<float,TH1F* > > TECPtrs;
+static std::map<uint32_t, std::map<float,TH1F* > > TECMTrs;
+static std::map<uint32_t, std::map<float,TH1F* > > TECMtrs;
+static std::map<uint32_t, std::map<float,TH1F* > > TIB;
+static std::map<uint32_t, std::map<float,TH1F* > > TID;
+static std::map<uint32_t, std::map<float,TH1F* > > TOB;
+static std::map<uint32_t, std::map<float,TH1F* > > TECPT;
+static std::map<uint32_t, std::map<float,TH1F* > > TECPt;
+static std::map<uint32_t, std::map<float,TH1F* > > TECMT;
+static std::map<uint32_t, std::map<float,TH1F* > > TECMt;
 
-static std::map<uint32_t, std::shared_ptr<TH1F> > TIBrsMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TIDrsMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TOBrsMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECPTrsMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECPtrsMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECMTrsMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECMtrsMean;
+static std::map<uint32_t, TH1F* > TIBrsMean;
+static std::map<uint32_t, TH1F* > TIDrsMean;
+static std::map<uint32_t, TH1F* > TOBrsMean;
+static std::map<uint32_t, TH1F* > TECPTrsMean;
+static std::map<uint32_t, TH1F* > TECPtrsMean;
+static std::map<uint32_t, TH1F* > TECMTrsMean;
+static std::map<uint32_t, TH1F* > TECMtrsMean;
 
-static std::map<uint32_t, std::shared_ptr<TH1F> > TIBMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TIDMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TOBMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECPTMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECPtMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECMTMean;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECMtMean;
+static std::map<uint32_t, TH1F* > TIBMean;
+static std::map<uint32_t, TH1F* > TIDMean;
+static std::map<uint32_t, TH1F* > TOBMean;
+static std::map<uint32_t, TH1F* > TECPTMean;
+static std::map<uint32_t, TH1F* > TECPtMean;
+static std::map<uint32_t, TH1F* > TECMTMean;
+static std::map<uint32_t, TH1F* > TECMtMean;
 
-static std::map<uint32_t, std::shared_ptr<TH1F> > TIBrsMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TIDrsMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TOBrsMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECPTrsMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECPtrsMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECMTrsMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECMtrsMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TIBMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TIDMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TOBMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECPTMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECPtMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECMTMPV;
-static std::map<uint32_t, std::shared_ptr<TH1F> > TECMtMPV;
+static std::map<uint32_t, TH1F* > TIBrsMPV;
+static std::map<uint32_t, TH1F* > TIDrsMPV;
+static std::map<uint32_t, TH1F* > TOBrsMPV;
+static std::map<uint32_t, TH1F* > TECPTrsMPV;
+static std::map<uint32_t, TH1F* > TECPtrsMPV;
+static std::map<uint32_t, TH1F* > TECMTrsMPV;
+static std::map<uint32_t, TH1F* > TECMtrsMPV;
+static std::map<uint32_t, TH1F* > TIBMPV;
+static std::map<uint32_t, TH1F* > TIDMPV;
+static std::map<uint32_t, TH1F* > TOBMPV;
+static std::map<uint32_t, TH1F* > TECPTMPV;
+static std::map<uint32_t, TH1F* > TECPtMPV;
+static std::map<uint32_t, TH1F* > TECMTMPV;
+static std::map<uint32_t, TH1F* > TECMtMPV;
 
 
 //// Per ring analysis
-void RPlots(const std::shared_ptr<TTree> & tree, 
-	    const std::shared_ptr<TTree> & map,
-	    const std::shared_ptr<TTree> & corrections,
+void RPlots(TTree* tree, 
+	    TTree* map,
+	    TTree* corrections,
 	    const std::string & observable,
 	    const std::string & outputDIR){
 
@@ -730,52 +743,52 @@ void RPlots(const std::shared_ptr<TTree> & tree,
 
     if(subdetid == 3){
       int ring = int((R-TIBRing.rMin)/((TIBRing.rMax-TIBRing.rMin)/TIBRing.nDivision))+1;   
-      if(TIBrs[ring][round((delay-correction)*10)/10].get() == 0 or TIBrs[ring][round((delay-correction)*10)/10].get() == NULL)      {
-	TIBrs[ring][round((delay-correction)*10)/10]= std::shared_ptr<TH1F>(new TH1F(Form("TIB_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax));      
+      if(TIBrs[ring][round((delay-correction)*10)/10] == 0 or TIBrs[ring][round((delay-correction)*10)/10] == NULL)      {
+	TIBrs[ring][round((delay-correction)*10)/10]= new TH1F(Form("TIB_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax);      
       }
       TIBrs[ring][round((delay-correction)*10)/10]->Fill(value);
     }    
     else if(subdetid == 5){
       int ring = int((R-TOBRing.rMin)/((TOBRing.rMax-TOBRing.rMin)/TOBRing.nDivision))+1;
-      if(TOBrs[ring][round((delay-correction)*10)/10].get() == 0 or TOBrs[ring][round((delay-correction)*10)/10].get() == NULL)      
-	TOBrs[ring][round((delay-correction)*10)/10]= std::shared_ptr<TH1F>(new TH1F(Form("TOB_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax));      
+      if(TOBrs[ring][round((delay-correction)*10)/10] == 0 or TOBrs[ring][round((delay-correction)*10)/10] == NULL)      
+	TOBrs[ring][round((delay-correction)*10)/10]= new TH1F(Form("TOB_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax);      
       TOBrs[ring][round((delay-correction)*10)/10]->Fill(value);
       
     }
     else if(subdetid == 4){
       int ring = int((R-TOBRing.rMin)/((TOBRing.rMax-TOBRing.rMin)/TOBRing.nDivision))+1;
-      if(TIDrs[ring][round((delay-correction)*10)/10].get() == 0 or TIDrs[ring][round((delay-correction)*10)/10].get() == NULL)      
-	TIDrs[ring][round((delay-correction)*10)/10]= std::shared_ptr<TH1F>(new TH1F(Form("TID_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax));      
+      if(TIDrs[ring][round((delay-correction)*10)/10] == 0 or TIDrs[ring][round((delay-correction)*10)/10] == NULL)      
+	TIDrs[ring][round((delay-correction)*10)/10]= new TH1F(Form("TID_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax);      
       TIDrs[ring][round((delay-correction)*10)/10]->Fill(value);
       
     }
 
     else if(subdetid == 6  and clglobalZ > 0 and thickness > 400){
       int ring = int((R-TECRing.rMin)/((TECRing.rMax-TECRing.rMin)/TECRing.nDivision))+1;
-      if(TECPTrs[ring][round((delay-correction)*10)/10].get() == 0 or TECPTrs[ring][round((delay-correction)*10)/10].get() == NULL)      
-	TECPTrs[ring][round((delay-correction)*10)/10]= std::shared_ptr<TH1F>(new TH1F(Form("TECPT_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax));      
+      if(TECPTrs[ring][round((delay-correction)*10)/10] == 0 or TECPTrs[ring][round((delay-correction)*10)/10] == NULL)      
+	TECPTrs[ring][round((delay-correction)*10)/10]= new TH1F(Form("TECPT_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax);      
       TECPTrs[ring][round((delay-correction)*10)/10]->Fill(value);
 
     }
     else if(subdetid == 6  and clglobalZ > 0 and thickness < 400){
       int ring = int((R-TECRing.rMin)/((TECRing.rMax-TECRing.rMin)/TECRing.nDivision))+1;
-      if(TECPtrs[ring][round((delay-correction)*10)/10].get() == 0 or TECPtrs[ring][round((delay-correction)*10)/10].get() == NULL)      
-	TECPtrs[ring][round((delay-correction)*10)/10]= std::shared_ptr<TH1F>(new TH1F(Form("TECPt_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax));      
+      if(TECPtrs[ring][round((delay-correction)*10)/10] == 0 or TECPtrs[ring][round((delay-correction)*10)/10] == NULL)      
+	TECPtrs[ring][round((delay-correction)*10)/10]= new TH1F(Form("TECPt_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax);      
       TECPtrs[ring][round((delay-correction)*10)/10]->Fill(value);
 
     }
     else if(subdetid == 6  and clglobalZ < 0 and thickness > 400){
       int ring = int((R-TECRing.rMin)/((TECRing.rMax-TECRing.rMin)/TECRing.nDivision))+1;
-      if(TECMTrs[ring][round((delay-correction)*10)/10].get() == 0 or TECMTrs[ring][round((delay-correction)*10)/10].get() == NULL)      
-	TECMTrs[ring][round((delay-correction)*10)/10]= std::shared_ptr<TH1F>(new TH1F(Form("TECMT_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax));      
+      if(TECMTrs[ring][round((delay-correction)*10)/10] == 0 or TECMTrs[ring][round((delay-correction)*10)/10] == NULL)      
+	TECMTrs[ring][round((delay-correction)*10)/10]= new TH1F(Form("TECMT_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax);      
       TECMTrs[ring][round((delay-correction)*10)/10]->Fill(value);
 
 
     }
     else if(subdetid == 6  and clglobalZ < 0 and thickness < 400){
       int ring = int((R-TECRing.rMin)/((TECRing.rMax-TECRing.rMin)/TECRing.nDivision))+1;
-      if(TECMtrs[ring][round((delay-correction)*10)/10].get() == 0 or TECMtrs[ring][round((delay-correction)*10)/10].get() == NULL)      
-	TECMtrs[ring][round((delay-correction)*10)/10]= std::shared_ptr<TH1F>(new TH1F(Form("TECMt_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax));      
+      if(TECMtrs[ring][round((delay-correction)*10)/10] == 0 or TECMtrs[ring][round((delay-correction)*10)/10] == NULL)      
+	TECMtrs[ring][round((delay-correction)*10)/10]= new TH1F(Form("TECMt_ring_%d_delay_%.1f",ring,delay-correction),"",nBinsY,yMin,yMax);      
       TECMtrs[ring][round((delay-correction)*10)/10]->Fill(value);
 
     }
@@ -784,11 +797,11 @@ void RPlots(const std::shared_ptr<TTree> & tree,
   std::cout<<"Build the mean and MPV distributions asaf of delay "<<endl;
   long int iBadChannelFit = 0;
   for(auto imap : TIBrs){ // loop on the different layer                                                                                                                     
-    if(TIBrsMean[imap.first].get() == 0 or TIBrsMean[imap.first].get() == NULL)
-      TIBrsMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TIB_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TIBrsMean[imap.first] == 0 or TIBrsMean[imap.first] == NULL)
+      TIBrsMean[imap.first] = new TH1F(Form("TIB_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TIBrsMPV[imap.first].get() == 0 or TIBrsMPV[imap.first].get() == NULL)
-      TIBrsMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TIB_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TIBrsMPV[imap.first] == 0 or TIBrsMPV[imap.first] == NULL)
+      TIBrsMPV[imap.first] = new TH1F(Form("TIB_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -796,9 +809,8 @@ void RPlots(const std::shared_ptr<TTree> & tree,
       TIBrsMean[imap.first]->SetBinContent(TIBrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TIBrsMean[imap.first]->SetBinError(TIBrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TIBrsMPV[imap.first].get(),"TIBrs",idelay.first,observable,outputDIR,"partitions");
-      if(status != 0)
-        iBadChannelFit++;
+      int status = makeLandauGausFit(idelay.second,TIBrsMPV[imap.first],"TIBrs",idelay.first,observable,outputDIR,"partitions");
+      if(status != 0) iBadChannelFit++;
     }
   }
 
@@ -806,11 +818,11 @@ void RPlots(const std::shared_ptr<TTree> & tree,
 
   iBadChannelFit = 0;
   for(auto imap : TOBrs){ // loop on the different layer                                                                                                                     
-    if(TOBrsMean[imap.first].get() == 0 or TOBrsMean[imap.first].get() == NULL)
-      TOBrsMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TOB_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TOBrsMean[imap.first] == 0 or TOBrsMean[imap.first] == NULL)
+      TOBrsMean[imap.first] = new TH1F(Form("TOB_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TOBrsMPV[imap.first].get() == 0 or TOBrsMPV[imap.first].get() == NULL)
-      TOBrsMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TOB_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TOBrsMPV[imap.first] == 0 or TOBrsMPV[imap.first] == NULL)
+      TOBrsMPV[imap.first] = new TH1F(Form("TOB_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -818,20 +830,19 @@ void RPlots(const std::shared_ptr<TTree> & tree,
       TOBrsMean[imap.first]->SetBinContent(TOBrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TOBrsMean[imap.first]->SetBinError(TOBrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TOBrsMPV[imap.first].get(),"TOBrs",idelay.first,observable,outputDIR,"partitions");
-      if(status != 0)
-        iBadChannelFit++;
+      int status = makeLandauGausFit(idelay.second,TOBrsMPV[imap.first],"TOBrs",idelay.first,observable,outputDIR,"partitions");
+      if(status != 0) iBadChannelFit++;
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TOB rings "<<iBadChannelFit<<" over "<<TOBrs.size()*TOBrs[1].size()<<std::endl;
 
   iBadChannelFit = 0;
   for(auto imap : TIDrs){ // loop on the different layer                                                                                                                     
-    if(TIDrsMean[imap.first].get() == 0 or TIDrsMean[imap.first].get() == NULL)
-      TIDrsMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TID_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TIDrsMean[imap.first] == 0 or TIDrsMean[imap.first] == NULL)
+      TIDrsMean[imap.first] = new TH1F(Form("TID_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TIDrsMPV[imap.first].get() == 0 or TIDrsMPV[imap.first].get() == NULL)
-      TIDrsMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TID_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TIDrsMPV[imap.first] == 0 or TIDrsMPV[imap.first] == NULL)
+      TIDrsMPV[imap.first] = new TH1F(Form("TID_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -839,20 +850,19 @@ void RPlots(const std::shared_ptr<TTree> & tree,
       TIDrsMean[imap.first]->SetBinContent(TIDrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TIDrsMean[imap.first]->SetBinError(TIDrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TIDrsMPV[imap.first].get(),"TIDrs",idelay.first,observable,outputDIR);
-      if(status != 0)
-        iBadChannelFit++;
+      int status = makeLandauGausFit(idelay.second,TIDrsMPV[imap.first],"TIDrs",idelay.first,observable,outputDIR);
+      if(status != 0) iBadChannelFit++;
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TID rings "<<iBadChannelFit<<" over "<<TIDrs.size()*TIDrs[1].size()<<std::endl;
 
   iBadChannelFit = 0;
   for(auto imap : TECPTrs){ // loop on the different layer                                                                                                                     
-    if(TECPTrsMean[imap.first].get() == 0 or TECPTrsMean[imap.first].get() == NULL)
-      TECPTrsMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECPT_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECPTrsMean[imap.first] == 0 or TECPTrsMean[imap.first] == NULL)
+      TECPTrsMean[imap.first] = new TH1F(Form("TECPT_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TECPTrsMPV[imap.first].get() == 0 or TECPTrsMPV[imap.first].get() == NULL)
-      TECPTrsMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECPT_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECPTrsMPV[imap.first] == 0 or TECPTrsMPV[imap.first] == NULL)
+      TECPTrsMPV[imap.first] = new TH1F(Form("TECPT_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -860,20 +870,19 @@ void RPlots(const std::shared_ptr<TTree> & tree,
       TECPTrsMean[imap.first]->SetBinContent(TECPTrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TECPTrsMean[imap.first]->SetBinError(TECPTrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TECPTrsMPV[imap.first].get(),"TECPTrs",idelay.first,observable,outputDIR,"partitions");
-      if(status != 0)
-        iBadChannelFit++;
+      int status = makeLandauGausFit(idelay.second,TECPTrsMPV[imap.first],"TECPTrs",idelay.first,observable,outputDIR,"partitions");
+      if(status != 0) iBadChannelFit++;
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECPT rings "<<iBadChannelFit<<" over "<<TECPTrs.size()*TECPTrs[1].size()<<std::endl;
 
   iBadChannelFit = 0;
   for(auto imap : TECPtrs){ // loop on the different layer                                                                                                                     
-    if(TECPtrsMean[imap.first].get() == 0 or TECPtrsMean[imap.first].get() == NULL)
-      TECPtrsMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECPt_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECPtrsMean[imap.first] == 0 or TECPtrsMean[imap.first] == NULL)
+      TECPtrsMean[imap.first] = new TH1F(Form("TECPt_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TECPtrsMPV[imap.first].get() == 0 or TECPtrsMPV[imap.first].get() == NULL)
-      TECPtrsMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECPt_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECPtrsMPV[imap.first] == 0 or TECPtrsMPV[imap.first] == NULL)
+      TECPtrsMPV[imap.first] = new TH1F(Form("TECPt_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -881,20 +890,19 @@ void RPlots(const std::shared_ptr<TTree> & tree,
       TECPtrsMean[imap.first]->SetBinContent(TECPtrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TECPtrsMean[imap.first]->SetBinError(TECPtrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TECPtrsMPV[imap.first].get(),"TECPtrs",idelay.first,observable,outputDIR,"partitions");
-      if(status != 0)
-        iBadChannelFit++;
+      int status = makeLandauGausFit(idelay.second,TECPtrsMPV[imap.first],"TECPtrs",idelay.first,observable,outputDIR,"partitions");
+      if(status != 0) iBadChannelFit++;
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECPt rings "<<iBadChannelFit<<" over "<<TECPtrs.size()*TECPtrs[1].size()<<std::endl;
 
   iBadChannelFit = 0;
   for(auto imap : TECMTrs){ // loop on the different layer                                                                                                                     
-    if(TECMTrsMean[imap.first].get() == 0 or TECMTrsMean[imap.first].get() == NULL)
-      TECMTrsMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECMT_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECMTrsMean[imap.first] == 0 or TECMTrsMean[imap.first] == NULL)
+      TECMTrsMean[imap.first] = new TH1F(Form("TECMT_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TECMTrsMPV[imap.first].get() == 0 or TECMTrsMPV[imap.first].get() == NULL)
-      TECMTrsMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECMT_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECMTrsMPV[imap.first] == 0 or TECMTrsMPV[imap.first] == NULL)
+      TECMTrsMPV[imap.first] = new TH1F(Form("TECMT_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -902,20 +910,19 @@ void RPlots(const std::shared_ptr<TTree> & tree,
       TECMTrsMean[imap.first]->SetBinContent(TECMTrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TECMTrsMean[imap.first]->SetBinError(TECMTrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TECMTrsMPV[imap.first].get(),"TECMTrs",idelay.first,observable,outputDIR,"partitions");
-      if(status != 0)
-        iBadChannelFit++;
+      int status = makeLandauGausFit(idelay.second,TECMTrsMPV[imap.first],"TECMTrs",idelay.first,observable,outputDIR,"partitions");
+      if(status != 0) iBadChannelFit++;
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECMT rings "<<iBadChannelFit<<" over "<<TECMTrs.size()*TECMTrs[1].size()<<std::endl;
 
   iBadChannelFit = 0;
   for(auto imap : TECMtrs){ // loop on the different layer                                                                                                                     
-    if(TECMtrsMean[imap.first].get() == 0 or TECMtrsMean[imap.first].get() == NULL)
-      TECMtrsMean[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECMt_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECMtrsMean[imap.first] == 0 or TECMtrsMean[imap.first] == NULL)
+      TECMtrsMean[imap.first] = new TH1F(Form("TECMt_ring_%d_mean",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
-    if(TECMtrsMPV[imap.first].get() == 0 or TECMtrsMPV[imap.first].get() == NULL)
-      TECMtrsMPV[imap.first] = std::shared_ptr<TH1F>(new TH1F(Form("TECMt_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]));
+    if(TECMtrsMPV[imap.first] == 0 or TECMtrsMPV[imap.first] == NULL)
+      TECMtrsMPV[imap.first] = new TH1F(Form("TECMt_ring_%d_mpv",imap.first),"",delayBins.size()-1,&delayBins[0]);
     TH1::AddDirectory(kFALSE);
     
     for(auto idelay : imap.second){
@@ -923,9 +930,8 @@ void RPlots(const std::shared_ptr<TTree> & tree,
       TECMtrsMean[imap.first]->SetBinContent(TECMtrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMean());
       TECMtrsMean[imap.first]->SetBinError(TECMtrsMean[imap.first]->FindBin(idelay.first),idelay.second->GetMeanError());
 
-      int status = makeLandauGausFit(idelay.second.get(),TECMtrsMPV[imap.first].get(),"TECMtrs",idelay.first,observable,outputDIR,"partitions");
-      if(status != 0)
-        iBadChannelFit++;
+      int status = makeLandauGausFit(idelay.second,TECMtrsMPV[imap.first],"TECMtrs",idelay.first,observable,outputDIR,"partitions");
+      if(status != 0) iBadChannelFit++;
     }
   }
   std::cout<<"Bad channel fit from Landau+Gaus fit in TECMt rings "<<iBadChannelFit<<" over "<<TECMtrs.size()*TECMtrs[1].size()<<std::endl;
@@ -1134,81 +1140,77 @@ void delayValidation(string file0,  // inputfile
   std::cout<<"#############################"<<std::endl;
 
   std::cout<<"Open Input Files"<<std::endl;
-  std::shared_ptr<TFile> _file0 (TFile::Open(file0.c_str()));
-  std::shared_ptr<TFile> _file1 (TFile::Open(file1.c_str()));
-  std::shared_ptr<TTree> clusters   ((TTree*)_file0->FindObjectAny("clusters"));
-  std::shared_ptr<TTree> readoutMap ((TTree*)_file0->FindObjectAny("readoutMap"));
-  std::shared_ptr<TTree> delayCorrections ((TTree*)_file1->FindObjectAny("delayCorrections"));  
+  TFile* _file0  = TFile::Open(file0.c_str());
+  TFile* _file1  = TFile::Open(file1.c_str());
+  TTree* clusters   = (TTree*)_file0->FindObjectAny("clusters");
+  TTree* readoutMap = (TTree*)_file0->FindObjectAny("readoutMap");
+  TTree* delayCorrections  = (TTree*)_file1->FindObjectAny("delayCorrections");  
   clusters->SetEventList(0);  
-
   
-
   // create the plots per layer
   if(plotLayer){
-
-    
-
+   
     // run per layer analysis
     LayerPlots(clusters,readoutMap,delayCorrections,observable,outputDIR);
 
     // canvas for layer one mean observable result
-    std::shared_ptr<TCanvas> c1_mean = prepareCanvas("TIB_layers_mean",observable);
+    TCanvas* c1_mean = prepareCanvas("TIB_layers_mean",observable);
     plotAll(c1_mean,TIBlayersMean);
     c1_mean->Print(Form("%s/TIB_layers_mean.root",outputDIR.c_str()));
     // canvas for layer one MPV observable result 
-    std::shared_ptr<TCanvas> c1_mpv = prepareCanvas("TIB_layers_mpv",observable);
+    TCanvas* c1_mpv = prepareCanvas("TIB_layers_mpv",observable);
     plotAll(c1_mpv,TIBlayersMPV);
     c1_mpv->Print(Form("%s/TIB_layers_mpv.root",outputDIR.c_str()));
     
     /// Layer TID
-    std::shared_ptr<TCanvas> c2_mean = prepareCanvas("TID_layers_mean",observable);
+    TCanvas* c2_mean = prepareCanvas("TID_layers_mean",observable);
     plotAll(c2_mean,TIDlayersMean);
     c2_mean->Print(Form("%s/TID_layers_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c2_mpv = prepareCanvas("TID_layers_mpv",observable);
+    TCanvas* c2_mpv = prepareCanvas("TID_layers_mpv",observable);
     plotAll(c2_mpv,TIDlayersMPV);
     c2_mpv->Print(Form("%s/TID_layers_mpv.root",outputDIR.c_str()));
     
     /// Layer TOB
-    std::shared_ptr<TCanvas> c3_mean = prepareCanvas("TOB_layers_mean",observable);
+    TCanvas* c3_mean = prepareCanvas("TOB_layers_mean",observable);
     plotAll(c3_mean,TOBlayersMean);
     c3_mean->Print(Form("%s/TOB_layers_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c3_mpv = prepareCanvas("TOB_layers_mpv",observable);
+    TCanvas* c3_mpv = prepareCanvas("TOB_layers_mpv",observable);
     plotAll(c3_mpv,TOBlayersMPV);
     c3_mpv->Print(Form("%s/TOB_layers_mpv.root",outputDIR.c_str()));
 
     /// Layer TECP thin sensors
-    std::shared_ptr<TCanvas> c4_mean = prepareCanvas("TECPt_layers_mean",observable);
+    TCanvas* c4_mean = prepareCanvas("TECPt_layers_mean",observable);
     plotAll(c4_mean,TECPtlayersMean);
     c4_mean->Print(Form("%s/TECPt_layers_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c4_mpv = prepareCanvas("TECPt_layers_mpv",observable);
+    TCanvas* c4_mpv = prepareCanvas("TECPt_layers_mpv",observable);
     plotAll(c4_mpv,TECPtlayersMPV);
     c4_mpv->Print(Form("%s/TECPt_layers_mpv.root",outputDIR.c_str()));
     
     /// Layer TECP thick sensors
-    std::shared_ptr<TCanvas> c5_mean = prepareCanvas("TECPT_layers_mean",observable);
+    TCanvas* c5_mean = prepareCanvas("TECPT_layers_mean",observable);
     plotAll(c5_mean,TECPTlayersMean);
     c5_mean->Print(Form("%s/TECPT_layers_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c5_mpv = prepareCanvas("TECPT_layers_mpv",observable);
+    TCanvas* c5_mpv = prepareCanvas("TECPT_layers_mpv",observable);
     plotAll(c5_mpv,TECPTlayersMPV);
     c5_mpv->Print(Form("%s/TECPT_layers_mpv.root",outputDIR.c_str()));
 
     /// Layer TECM thin sensors
-    std::shared_ptr<TCanvas> c6_mean = prepareCanvas("TECMt_layers_mean",observable);
+    TCanvas* c6_mean = prepareCanvas("TECMt_layers_mean",observable);
     plotAll(c6_mean,TECMtlayersMean);
     c6_mean->Print(Form("%s/TECMt_layers_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c6_mpv = prepareCanvas("TECMt_layers_mpv",observable);
+    TCanvas* c6_mpv = prepareCanvas("TECMt_layers_mpv",observable);
     plotAll(c6_mpv,TECMtlayersMPV);
     c6_mpv->Print(Form("%s/TECMt_layers_mpv.root",outputDIR.c_str()));
 
     /// Layer TECM thick sensors
-    std::shared_ptr<TCanvas> c7_mean = prepareCanvas("TECMT_layers_mean",observable);
+    TCanvas* c7_mean = prepareCanvas("TECMT_layers_mean",observable);
     plotAll(c7_mean,TECMTlayersMean);
     c7_mean->Print(Form("%s/TECMT_layers_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c7_mpv = prepareCanvas("TECMT_layers_mpv",observable);
+    TCanvas* c7_mpv = prepareCanvas("TECMT_layers_mpv",observable);
     plotAll(c7_mpv,TECMTlayersMPV);
     c7_mpv->Print(Form("%s/TECMT_layers_mpv.root",outputDIR.c_str()));    
 
-    std::vector<std::shared_ptr<TH1F> > alllayersMean;
+    std::vector<TH1F* > alllayersMean;
     for(auto tib : TIBlayersMean)
       alllayersMean.push_back(tib.second);
     for(auto tob : TOBlayersMean)
@@ -1224,7 +1226,7 @@ void delayValidation(string file0,  // inputfile
     for(auto tec : TECMtlayersMean)
       alllayersMean.push_back(tec.second);  
 
-    std::vector<std::shared_ptr<TH1F> > alllayersMPV;
+    std::vector<TH1F* > alllayersMPV;
     for(auto tib : TIBlayersMPV)
       alllayersMPV.push_back(tib.second);
     for(auto tob : TOBlayersMPV)
@@ -1241,21 +1243,21 @@ void delayValidation(string file0,  // inputfile
       alllayersMPV.push_back(tec.second);
 
     // store all the different plots --> plot maximum value for each layer    
-    std::shared_ptr<TCanvas> c8_mean (new TCanvas("c_layers_mean","",800,650));  
+    TCanvas* c8_mean (new TCanvas("c_layers_mean","",800,650));  
     plotMaxima(c8_mean,alllayersMean,outputDIR,"layers_mean");
-    std::shared_ptr<TCanvas> c8_mpv (new TCanvas("c_layers_mpv","",800,650));  
+    TCanvas* c8_mpv (new TCanvas("c_layers_mpv","",800,650));  
     plotMaxima(c8_mpv,alllayersMPV,outputDIR,"layers_mpv");
 
     TFile* allLayerMeanFile = new TFile((outputDIR+"/outputAllLayerMean.root").c_str(),"RECREATE");
     allLayerMeanFile->cd();
     for(auto ihist: alllayersMean)
-      ihist.get()->Write();
+      ihist->Write();
     allLayerMeanFile->Close();
     
     TFile* allLayerMPVFile = new TFile((outputDIR+"/outputAllLayerMPV.root").c_str(),"RECREATE");
     allLayerMPVFile->cd();
     for(auto ihist: alllayersMPV)
-      ihist.get()->Write();
+      ihist->Write();
     allLayerMPVFile->Close();
 
     TIBlayers.clear();
@@ -1293,58 +1295,58 @@ void delayValidation(string file0,  // inputfile
     RPlots(clusters,readoutMap,delayCorrections,observable,outputDIR);
     
     // Per ring in TIB
-    std::shared_ptr<TCanvas> c1b_mean = prepareCanvas("TIB_distance_mean",observable);
+    TCanvas* c1b_mean = prepareCanvas("TIB_distance_mean",observable);
     plotAll(c1b_mean,TIBrsMean);
     c1b_mean->Print(Form("%s/TIB_distance_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c1b_mpv = prepareCanvas("TIB_distance_mpv",observable);
+    TCanvas* c1b_mpv = prepareCanvas("TIB_distance_mpv",observable);
     plotAll(c1b_mpv,TIBrsMPV);
     c1b_mpv->Print(Form("%s/TIB_distance_mpv.root",outputDIR.c_str()));
 
     // Per ring in TID
-    std::shared_ptr<TCanvas> c2b_mean = prepareCanvas("TID_distance_mean",observable);
+    TCanvas* c2b_mean = prepareCanvas("TID_distance_mean",observable);
     plotAll(c2b_mean,TIDrsMean);
     c2b_mean->Print(Form("%s/TID_distance_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c2b_mpv = prepareCanvas("TID_distance_mpv",observable);
+    TCanvas* c2b_mpv = prepareCanvas("TID_distance_mpv",observable);
     plotAll(c2b_mpv,TIDrsMPV);
     c2b_mpv->Print(Form("%s/TID_distance_mpv.root",outputDIR.c_str()));
 
     // Per ring in TOB
-    std::shared_ptr<TCanvas> c3b_mean = prepareCanvas("TOB_distance_mean",observable);
+    TCanvas* c3b_mean = prepareCanvas("TOB_distance_mean",observable);
     plotAll(c3b_mean,TOBrsMean);
     c3b_mean->Print(Form("%s/TOB_distance_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c3b_mpv = prepareCanvas("TOB_distance_mpv",observable);
+    TCanvas* c3b_mpv = prepareCanvas("TOB_distance_mpv",observable);
     plotAll(c3b_mpv,TOBrsMPV);
     c3b_mpv->Print(Form("%s/TOB_distance_mpv.root",outputDIR.c_str()));
 
     // Per ring in TECM
-    std::shared_ptr<TCanvas> c4b_mean = prepareCanvas("TECMT_distance_mean",observable);
+    TCanvas* c4b_mean = prepareCanvas("TECMT_distance_mean",observable);
     plotAll(c4b_mean,TECMTrsMean);
     c4b_mean->Print(Form("%s/TECMT_distance_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c4b_mpv = prepareCanvas("TECMT_distance_mpv",observable);
+    TCanvas* c4b_mpv = prepareCanvas("TECMT_distance_mpv",observable);
     plotAll(c4b_mpv,TECMTrsMPV);
     c4b_mpv->Print(Form("%s/TECMT_distance_mpv.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c5b_mean = prepareCanvas("TECMt_distance_mean",observable);
+    TCanvas* c5b_mean = prepareCanvas("TECMt_distance_mean",observable);
     plotAll(c5b_mean,TECMtrsMean);
     c5b_mean->Print(Form("%s/TECMt_distance_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c5b_mpv = prepareCanvas("TECMt_distance_mpv",observable);
+    TCanvas* c5b_mpv = prepareCanvas("TECMt_distance_mpv",observable);
     plotAll(c5b_mpv,TECMtrsMPV);
     c5b_mpv->Print(Form("%s/TECMt_distance_mpv.root",outputDIR.c_str()));
 
     // Per ring in TECM
-    std::shared_ptr<TCanvas> c6b_mean = prepareCanvas("TECPT_distance_mean",observable);
+    TCanvas* c6b_mean = prepareCanvas("TECPT_distance_mean",observable);
     plotAll(c6b_mean,TECPTrsMean);
     c6b_mean->Print(Form("%s/TECPT_distance_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c6b_mpv = prepareCanvas("TECPT_distance_mpv",observable);
+    TCanvas* c6b_mpv = prepareCanvas("TECPT_distance_mpv",observable);
     plotAll(c6b_mpv,TECPTrsMPV);
     c6b_mpv->Print(Form("%s/TECPT_distance_mpv.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c7b_mean = prepareCanvas("TECPt_distance_mean",observable);
+    TCanvas* c7b_mean = prepareCanvas("TECPt_distance_mean",observable);
     plotAll(c7b_mean,TECPtrsMean);
     c7b_mean->Print(Form("%s/TECPt_distance_mean.root",outputDIR.c_str()));
-    std::shared_ptr<TCanvas> c7b_mpv = prepareCanvas("TECPt_distance_mpv",observable);
+    TCanvas* c7b_mpv = prepareCanvas("TECPt_distance_mpv",observable);
     plotAll(c7b_mpv,TECPtrsMPV);
     c7b_mpv->Print(Form("%s/TECPt_distance_mpv.root",outputDIR.c_str()));
 
-    std::vector<std::shared_ptr<TH1F> > allrsMean;
+    std::vector<TH1F* > allrsMean;
     for(auto tib : TIBrsMean)
       allrsMean.push_back(tib.second);
     for(auto tob : TOBrsMean)
@@ -1360,7 +1362,7 @@ void delayValidation(string file0,  // inputfile
     for(auto tec : TECMtrsMean)
       allrsMean.push_back(tec.second);
 
-    std::vector<std::shared_ptr<TH1F> > allrsMPV;
+    std::vector<TH1F* > allrsMPV;
     for(auto tib : TIBrsMPV)
       allrsMPV.push_back(tib.second);
     for(auto tob : TOBrsMPV)
@@ -1376,9 +1378,9 @@ void delayValidation(string file0,  // inputfile
     for(auto tec : TECMtrsMPV)
       allrsMPV.push_back(tec.second);
 
-    std::shared_ptr<TCanvas> c8b_mean (new TCanvas("c_rings_mean","",800,650));  
+    TCanvas* c8b_mean (new TCanvas("c_rings_mean","",800,650));  
     plotMaxima(c8b_mean,allrsMean,outputDIR,"rings");
-    std::shared_ptr<TCanvas> c8b_mpv (new TCanvas("c_rings_mpv","",800,650));  
+    TCanvas* c8b_mpv (new TCanvas("c_rings_mpv","",800,650));  
     plotMaxima(c8b_mpv,allrsMPV,outputDIR,"rings");
     
     TIBrs.clear();
@@ -1422,7 +1424,7 @@ void delayValidation(string file0,  // inputfile
     RPlots(clusters,readoutMap,delayCorrections,observable,outputDIR);
         
     // create the plots per partition
-    std::vector<std::shared_ptr<TH1F> > allPartitionMean;
+    std::vector<TH1F* > allPartitionMean;
     for(auto tib : TIBrsMean)
       allPartitionMean.push_back(tib.second);
     for(auto tob : TOBrsMean)
@@ -1438,7 +1440,7 @@ void delayValidation(string file0,  // inputfile
     for(auto tec : TECMtrsMean)
       allPartitionMean.push_back(tec.second);
 
-    std::vector<std::shared_ptr<TH1F> > allPartitionMPV;
+    std::vector<TH1F* > allPartitionMPV;
     for(auto tib : TIBrsMPV)
       allPartitionMPV.push_back(tib.second);
     for(auto tob : TOBrsMPV)
@@ -1455,24 +1457,24 @@ void delayValidation(string file0,  // inputfile
       allPartitionMPV.push_back(tec.second);
 
 
-    std::shared_ptr<TCanvas> c1_mean = prepareCanvas("Partitions_mean",observable);
+    TCanvas* c1_mean = prepareCanvas("Partitions_mean",observable);
     plotAll(c1_mean,allPartitionMean,"ring1");
     c1_mean->Print(Form("%s/Partitions_mean.root",outputDIR.c_str()));
 
-    std::shared_ptr<TCanvas> c1_mpv = prepareCanvas("Partitions_mpv",observable);
+    TCanvas* c1_mpv = prepareCanvas("Partitions_mpv",observable);
     plotAll(c1_mpv,allPartitionMPV,"ring1");
     c1_mpv->Print(Form("%s/Partitions_mpv.root",outputDIR.c_str()));
 
     TFile* outputAllPartitionMean = new TFile((outputDIR+"/outputAllPartitionMean.root").c_str(),"RECREATE");
     outputAllPartitionMean->cd();
     for(auto ihist : allPartitionMean)
-      ihist.get()->Write();
+      ihist->Write();
     outputAllPartitionMean->Close();
 
     TFile* outputAllPartitionMPV = new TFile((outputDIR+"/outputAllPartitionMPV.root").c_str(),"RECREATE");
     outputAllPartitionMPV->cd();
     for(auto ihist : allPartitionMPV)
-      ihist.get()->Write();
+      ihist->Write();
     outputAllPartitionMPV->Close();
     
     TIBrs.clear();
@@ -1502,5 +1504,7 @@ void delayValidation(string file0,  // inputfile
     allPartitionMean.clear();
     allPartitionMPV.clear();
   } 
+
+  outputFitFile->Close();
 }
 

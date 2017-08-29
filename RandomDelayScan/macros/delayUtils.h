@@ -49,7 +49,7 @@ void setLimitsAndBinning(const string & observable, vector<double> & limits){
   return;
 }
 
-int getFilledBins(const std::shared_ptr<TProfile> & prof){
+int getFilledBins(TProfile* prof){
   int nfilled = 0;
   for(int iBin = 1; iBin <= prof->GetNbinsX(); iBin++){
     if(prof->GetBinContent(iBin) != 0) nfilled++;
@@ -57,7 +57,7 @@ int getFilledBins(const std::shared_ptr<TProfile> & prof){
   return nfilled;
 }
 
-int getFilledBins(const std::shared_ptr<TH1F> & prof){
+int getFilledBins(TH1F* prof){
   int nfilled = 0;
   for(int iBin = 1; iBin <= prof->GetNbinsX(); iBin++){
     if(prof->GetBinContent(iBin) != 0) nfilled++;
@@ -99,7 +99,7 @@ float correctMeasurement(float mean, float SoNcut){
 }
 
 // Profile correction
-void correctProfile(const std::shared_ptr<TProfile> & profile){
+void correctProfile(TProfile* profile){
   int nbins = profile->GetNbinsX();
   float min = limit(3.); // zero suppression level .. something like S/Noise = 3                                                                                               
   for(int bin=1;bin<=nbins;++bin){
@@ -115,7 +115,7 @@ void correctProfile(const std::shared_ptr<TProfile> & profile){
   return;
 }
 
-void correctHistogram(const std::shared_ptr<TH1F> & histo){
+void correctHistogram(TH1F* histo){
   int nbins = histo->GetNbinsX();
   float min = limit(3.); // zero suppression level .. something like S/Noise = 3                                                                                               
   for(int bin=1;bin<=nbins;++bin){
@@ -132,49 +132,49 @@ void correctHistogram(const std::shared_ptr<TH1F> & histo){
 }
 
 //// fitting profiles
-TFitResultPtr fitProfile(const std::shared_ptr<TProfile> & prof, bool gaus = false, string options = "", bool verbosity = false){
-  std::shared_ptr<TF1> pulse;
+TFitResultPtr fitProfile(TProfile* prof, bool gaus = false, string options = "", bool verbosity = false){
+  TF1* pulse;
   if(gaus) { // gaussina fit                                                                                                                                                   
-    pulse = std::shared_ptr<TF1>(new TF1(Form("Gaus_%s",prof->GetName()),"gaus(0)",-10.5,10.5));
+    pulse = new TF1(Form("Gaus_%s",prof->GetName()),"gaus(0)",-10.5,10.5);
     pulse->SetParameters(50,0,12);
   } else {// different fit for the profile                                                                                                                                     
-    pulse = std::shared_ptr<TF1>(TkPulseShape::GetDeconvFitter());
+    pulse = TkPulseShape::GetDeconvFitter();
     pulse->SetName(Form("SignalFit_%s",prof->GetName()));
     pulse->SetParameters(0,0,3,50,15);
     pulse->FixParameter(0,0);
     pulse->FixParameter(3,50);
   }
   gROOT->SetBatch(1);
-  TFitResultPtr result = prof->Fit(pulse.get(),(options+"S").c_str());
+  TFitResultPtr result = prof->Fit(pulse,(options+"S").c_str());
   if(verbosity)
     std::cout << "Profile Name "<<prof->GetName()<<" "<<"Maximum at " << pulse->GetParameter(1) << std::endl;
   return result;
 }
 
 //// fitting profiles
-TFitResultPtr fitHistogram(const std::shared_ptr<TH1F> & histo, bool gaus = false, string options = "", bool verbosity = false){
-  std::shared_ptr<TF1> pulse;
+TFitResultPtr fitHistogram(TH1F* histo, bool gaus = false, string options = "", bool verbosity = false){
+  TF1* pulse;
   if(gaus) { // gaussina fit                                                                                                                                                   
-    pulse = std::shared_ptr<TF1>(new TF1(Form("Gaus_%s",histo->GetName()),"gaus(0)",-10.5,10.5));
+    pulse = new TF1(Form("Gaus_%s",histo->GetName()),"gaus(0)",-10.5,10.5);
     pulse->SetParameters(50,0,12);
   } else {// different fit for the histoile                                                                                                                                     
-    pulse = std::shared_ptr<TF1>(TkPulseShape::GetDeconvFitter());
+    pulse = TkPulseShape::GetDeconvFitter();
     pulse->SetName(Form("SignalFit_%s",histo->GetName()));
     pulse->SetParameters(0,0,3,50,15);
     pulse->FixParameter(0,0);
     pulse->FixParameter(3,50);
   }
   gROOT->SetBatch(1);
-  TFitResultPtr result = histo->Fit(pulse.get(),(options+"S").c_str());
+  TFitResultPtr result = histo->Fit(pulse,(options+"S").c_str());
   if(verbosity)
     std::cout << "Histogram Name "<<histo->GetName()<<" "<<"Maximum at " << pulse->GetParameter(1) << std::endl;
   return result;
 }
 
 // prepare a canvas for the final plot
-std::shared_ptr<TCanvas> prepareCanvas(const string & name = "",const string & observable = "maxCharge"){
+TCanvas* prepareCanvas(const string & name = "",const string & observable = "maxCharge"){
 
-  std::shared_ptr<TCanvas>  c (new TCanvas(name.c_str(),name.c_str(),600,625));
+  TCanvas*c  = new TCanvas(name.c_str(),name.c_str(),600,625);
   c->cd();
 
   float yMin = 0.; 
@@ -201,12 +201,12 @@ std::shared_ptr<TCanvas> prepareCanvas(const string & name = "",const string & o
   frame->SetMarkerSize(1.0);
   frame->SetMarkerStyle(20);
   frame->Draw();
-  CMS_lumi(c.get(),"");
+  CMS_lumi(c,"");
   return c;
 }
 
 // plot all the profiles on a canvas
-void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::shared_ptr<TProfile>  & curves){
+void plotAll(TCanvas* canvas, TProfile* curves){
 
   canvas->cd();
   curves->SetLineColor(kBlack);
@@ -220,7 +220,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::shared_ptr<TPro
   return;
 }
 
-void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::shared_ptr<TH1F>  & curves){
+void plotAll(TCanvas* canvas, TH1F* curves){
 
   canvas->cd();
   curves->SetLineColor(kBlack);
@@ -236,7 +236,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::shared_ptr<TH1F
 
 
 // plot all the profiles on a canvas
-void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TProfile> > & curves, string  remove  = ""){
+void plotAll(TCanvas* canvas, const std::vector<TProfile*> & curves, string  remove  = ""){
 
   canvas->cd();
   float yMin = 10000.;
@@ -252,7 +252,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
   legend->SetFillStyle(0);
   legend->SetBorderSize(0);  
 
-  for(std::vector<std::shared_ptr<TProfile> >::const_iterator it = curves.begin(); it != curves.end(); ++it) {
+  for(std::vector<TProfile*>::const_iterator it = curves.begin(); it != curves.end(); ++it) {
     if((*it)->Integral() == 0 or (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName())) == 0) continue;
     (*it)->SetLineColor(icolor);
     (*it)->SetMarkerColor(icolor);
@@ -260,7 +260,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
     (*it)->SetMarkerSize(1);
     TString legenEntry = Form("%s",(*it)->GetName());
     legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"").ReplaceAll("mean","").ReplaceAll("mpv","");
-    legend->AddEntry((*it).get(),legenEntry,"EP");
+    legend->AddEntry((*it),legenEntry,"EP");
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineColor(icolor);
     (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineWidth(2);
     (*it)->Draw("same");
@@ -279,49 +279,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::sha
 
 
 // plot all the profiles on a canvas
-void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TH1F> > & curves, string  remove  = ""){
-
-  canvas->cd();
-  float yMin = 10000.;
-  float yMax = -1.;
-  int   icolor = 1;
-
-  if(legend == 0 or legend == NULL)
-    legend = new TLegend(0.55,0.7,0.85,0.92);
-  else
-    legend->Clear();
-
-  legend->SetFillColor(0);
-  legend->SetFillStyle(0);
-  legend->SetBorderSize(0);  
-
-  for(std::vector<std::shared_ptr<TH1F> >::const_iterator it = curves.begin(); it != curves.end(); ++it) {
-    if((*it)->Integral() == 0 or (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName())) == 0) continue;
-    (*it)->SetLineColor(icolor);
-    (*it)->SetMarkerColor(icolor);
-    (*it)->SetMarkerStyle(20);
-    (*it)->SetMarkerSize(1);
-    TString legenEntry = Form("%s",(*it)->GetName());
-    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"").ReplaceAll("mean","").ReplaceAll("mpv","");
-    legend->AddEntry((*it).get(),legenEntry,"EP");
-    (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineColor(icolor);
-    (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineWidth(2);
-    (*it)->Draw("same");
-    if((*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMaximum() > yMax)
-      yMax = (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMaximum();
-    if((*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMinimum() < yMin)
-      yMin = (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMinimum();
-    icolor++;
-  }
-  frame->GetYaxis()->SetRangeUser(yMin*0.75,yMax*1.50);
-  legend->Draw("same");
-
-  return;
-
-}
-
-// plot all the profiles on a canvas
-void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::map<uint32_t,std::shared_ptr<TH1F> > & curves, string  remove  = ""){
+void plotAll(TCanvas* canvas, const std::vector<TH1F*> & curves, string  remove  = ""){
   
   canvas->cd();
   float yMin = 10000.;
@@ -337,7 +295,49 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::map<uint32_t,st
   legend->SetFillStyle(0);
   legend->SetBorderSize(0);  
 
-  for(std::map<uint32_t,std::shared_ptr<TH1F> >::const_iterator it = curves.begin(); it != curves.end(); ++it) {
+  for(std::vector<TH1F*>::const_iterator it = curves.begin(); it != curves.end(); ++it) {
+    if((*it)->Integral() == 0 or (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName())) == 0) continue;
+    (*it)->SetLineColor(icolor);
+    (*it)->SetMarkerColor(icolor);
+    (*it)->SetMarkerStyle(20);
+    (*it)->SetMarkerSize(1);
+    TString legenEntry = Form("%s",(*it)->GetName());
+    legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"").ReplaceAll("mean","").ReplaceAll("mpv","");
+    legend->AddEntry((*it),legenEntry,"EP");
+    (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineColor(icolor);
+    (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->SetLineWidth(2);
+    (*it)->Draw("same");
+    if((*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMaximum() > yMax)
+      yMax = (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMaximum();
+    if((*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMinimum() < yMin)
+      yMin = (*it)->GetFunction(Form("Gaus_%s",(*it)->GetName()))->GetMinimum();
+    icolor++;
+  }
+  frame->GetYaxis()->SetRangeUser(yMin*0.75,yMax*1.50);
+  legend->Draw("same");
+
+  return;
+
+}
+
+// plot all the profiles on a canvas
+void plotAll(TCanvas* canvas, const std::map<uint32_t,TH1F*> & curves, string  remove  = ""){
+  
+  canvas->cd();
+  float yMin = 10000.;
+  float yMax = -1.;
+  int   icolor = 1;
+
+  if(legend == 0 or legend == NULL)
+    legend = new TLegend(0.55,0.7,0.85,0.92);
+  else
+    legend->Clear();
+
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
+  legend->SetBorderSize(0);  
+
+  for(std::map<uint32_t,TH1F*>::const_iterator it = curves.begin(); it != curves.end(); ++it) {
     if((*it).second->Integral() == 0 or (*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName())) == 0) continue;
     (*it).second->SetLineColor(icolor);
     (*it).second->SetMarkerColor(icolor);
@@ -345,7 +345,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::map<uint32_t,st
     (*it).second->SetMarkerSize(1);
     TString legenEntry = Form("%s",(*it).second->GetName());
     legenEntry.ReplaceAll("_"," ").ReplaceAll(remove.c_str(),"").ReplaceAll("mean","").ReplaceAll("mpv","");
-    legend->AddEntry((*it).second.get(),legenEntry,"EP");
+    legend->AddEntry((*it).second,legenEntry,"EP");
     (*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName()))->SetLineColor(icolor);
     (*it).second->GetFunction(Form("Gaus_%s",(*it).second->GetName()))->SetLineWidth(2);
     (*it).second->Draw("same");
@@ -363,7 +363,7 @@ void plotAll(const std::shared_ptr<TCanvas> & canvas, const std::map<uint32_t,st
 }
 
 // plot delay correspoding to the maximum of the profiles
-void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TProfile> > & curves, string outputDIR, string postfix){
+void plotMaxima(TCanvas* canvas, const std::vector<TProfile*> & curves, string outputDIR, string postfix){
 
 
   canvas->cd();
@@ -371,9 +371,9 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   canvas->SetTicky();
   canvas->SetBottomMargin(0.21);
 
-  std::shared_ptr<TH1F> graph (new TH1F(Form("graph_%s",postfix.c_str()),"",curves.size(),0,curves.size()+1));
+  TH1F* graph  = new TH1F(Form("graph_%s",postfix.c_str()),"",curves.size(),0,curves.size()+1);
   int i = 0;
-  for(std::vector<std::shared_ptr<TProfile> >::const_iterator it = curves.begin(); it != curves.end(); ++it,++i) {
+  for(std::vector<TProfile*>::const_iterator it = curves.begin(); it != curves.end(); ++it,++i) {
     if((*it)->GetListOfFunctions()->At(0)) {
       graph->SetBinContent(i+1,((TF1*)(*it)->GetListOfFunctions()->At(0))->GetParameter(1));
       graph->SetBinError(i+1,((TF1*)(*it)->GetListOfFunctions()->At(0))->GetParError(1) );
@@ -381,7 +381,7 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   }
 
   i=0;
-  for(std::vector<std::shared_ptr<TProfile> >::const_iterator it = curves.begin(); it < curves.end(); ++it,++i){
+  for(std::vector<TProfile* >::const_iterator it = curves.begin(); it < curves.end(); ++it,++i){
     TString label = Form("%s",(*it)->GetName());
     label.ReplaceAll("_"," ").ReplaceAll("mean","").ReplaceAll("mpv","");
     graph->GetXaxis()->SetBinLabel(i+1,label);
@@ -394,7 +394,7 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   graph->SetLineColor(kBlack);
   graph->GetYaxis()->SetRangeUser(-5,5);
   graph->Draw();
-  CMS_lumi(canvas.get(),"");
+  CMS_lumi(canvas,"");
   graph->SetFillColor(kGreen+1);
   std::auto_ptr<TF1> funz (new TF1("funz","0",0,graph->GetBinLowEdge(graph->GetNbinsX()+1)));
   funz->SetLineColor(kRed);
@@ -409,7 +409,7 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
 }
 
 
-void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::shared_ptr<TH1F> > & curves, string outputDIR, string postfix){
+void plotMaxima(TCanvas* canvas, const std::vector<TH1F*> & curves, string outputDIR, string postfix){
 
 
   canvas->cd();
@@ -417,9 +417,9 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   canvas->SetTicky();
   canvas->SetBottomMargin(0.21);
 
-  std::shared_ptr<TH1F> graph (new TH1F(Form("graph_%s",postfix.c_str()),"",curves.size(),0,curves.size()+1));
+  TH1F* graph  = new TH1F(Form("graph_%s",postfix.c_str()),"",curves.size(),0,curves.size()+1);
   int i = 0;
-  for(std::vector<std::shared_ptr<TH1F> >::const_iterator it = curves.begin(); it != curves.end(); ++it,++i) {
+  for(std::vector<TH1F*>::const_iterator it = curves.begin(); it != curves.end(); ++it,++i) {
     if((*it)->GetListOfFunctions()->At(0)) {
       graph->SetBinContent(i+1,((TF1*)(*it)->GetListOfFunctions()->At(0))->GetParameter(1));
       graph->SetBinError(i+1,((TF1*)(*it)->GetListOfFunctions()->At(0))->GetParError(1) );
@@ -428,7 +428,7 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
 
 
   i=0;
-  for(std::vector<std::shared_ptr<TH1F> >::const_iterator it = curves.begin(); it != curves.end(); ++it,++i){
+  for(std::vector<TH1F*>::const_iterator it = curves.begin(); it != curves.end(); ++it,++i){
     TString label = Form("%s",(*it)->GetName());
     label.ReplaceAll("_"," ").ReplaceAll("mean","").ReplaceAll("mpv","");
     graph->GetXaxis()->SetBinLabel(i+1,label);
@@ -441,7 +441,7 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   graph->SetLineColor(kBlack);
   graph->GetYaxis()->SetRangeUser(-5,5);
   graph->Draw();
-  CMS_lumi(canvas.get(),"");
+  CMS_lumi(canvas,"");
   graph->SetFillColor(kGreen+1);
   std::auto_ptr<TF1> funz (new TF1("funz","0",0,graph->GetBinLowEdge(graph->GetNbinsX()+1)));
   funz->SetLineColor(kRed);
@@ -455,15 +455,15 @@ void plotMaxima(const std::shared_ptr<TCanvas> & canvas, const std::vector<std::
   return;
 }
 
-void saveAll(const std::map<uint32_t,std::shared_ptr<TProfile> > channelMap, const string & outputDIR, const string & observable, const string & postfix){
+void saveAll(const std::map<uint32_t,TProfile* > channelMap, const string & outputDIR, const string & observable, const string & postfix){
 
-  std::shared_ptr<TFile> outputFile (new TFile((outputDIR+"/channelProfileMap_"+postfix+".root").c_str(),"RECREATE"));
+  TFile* outputFile  = new TFile((outputDIR+"/channelProfileMap_"+postfix+".root").c_str(),"RECREATE");
   outputFile->cd();
 
   cout<<"### saveAll channel distribution and fits "<<endl;
   long int imap = 0;
   for(auto itMap : channelMap){
-    std::shared_ptr<TCanvas> c1 = prepareCanvas("channelMap",observable);
+    TCanvas* c1 = prepareCanvas("channelMap",observable);
     c1->cd();
     if(imap % savePlotEvery == 0){ // save one every ten
       cout.flush();
@@ -492,14 +492,14 @@ void saveAll(const std::map<uint32_t,std::shared_ptr<TProfile> > channelMap, con
 
 
 
-void saveAll(const std::map<uint32_t,std::shared_ptr<TH1F> > channelHistoMap, const string & outputDIR, const string & observable, const string & postfix){
+void saveAll(const std::map<uint32_t,TH1F*> channelHistoMap, const string & outputDIR, const string & observable, const string & postfix){
 
-  std::shared_ptr<TFile> outputFile (new TFile((outputDIR+"/channelHistoMap_"+postfix+".root").c_str(),"RECREATE"));
+  TFile* outputFile = new TFile((outputDIR+"/channelHistoMap_"+postfix+".root").c_str(),"RECREATE");
   outputFile->cd();
   cout<<"### saveAll channel distribution for each delay "<<endl;
   long int idetid = 0;
   for(auto itMap : channelHistoMap){
-    std::shared_ptr<TCanvas> c1 = prepareCanvas("channelMap",observable);
+    TCanvas* c1 = prepareCanvas("channelMap",observable);
     c1->cd();
     if(idetid % savePlotEvery == 0){ 
       cout.flush();

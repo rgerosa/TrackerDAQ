@@ -15,7 +15,7 @@
 using namespace std; 
 
 // reduce the number of events by
-static int  reductionFactor = 30;
+static int  reductionFactor = 1;
 
 // create the plots in R slices 
 static std::map<int32_t, TH1F* > TIBMaxCharge;
@@ -245,9 +245,18 @@ void plotDistributions(TCanvas* canvas, const string & outputDIR){
   frame->Reset();
 
   for(auto imap : TIBMaxCharge){
+
+    // normalize as a pdf
+    TIBMaxCharge[imap.first]->Scale(1./TIBMaxCharge[imap.first]->Integral(),"width");
+    TOBMaxCharge[imap.first]->Scale(1./TOBMaxCharge[imap.first]->Integral(),"width");
+    TIDMaxCharge[imap.first]->Scale(1./TIDMaxCharge[imap.first]->Integral(),"width");
+    TECTMaxCharge[imap.first]->Scale(1./TECTMaxCharge[imap.first]->Integral(),"width");
+    TECtMaxCharge[imap.first]->Scale(1./TECtMaxCharge[imap.first]->Integral(),"width");
+    
+
     frame->GetXaxis()->SetTitle("leading strip charge (ADC)");
     frame->GetXaxis()->SetTitleOffset(1.1);
-    frame->GetYaxis()->SetTitle("Number of clusters");
+    frame->GetYaxis()->SetTitle("a.u.");
     frame->GetYaxis()->SetTitleOffset(1.35);
     frame->GetYaxis()->SetRangeUser(0,max(TIBMaxCharge[imap.first]->GetMaximum(),max(TOBMaxCharge[imap.first]->GetMaximum(),max(TIDMaxCharge[imap.first]->GetMaximum(),max(TECTMaxCharge[imap.first]->GetMaximum(),TECtMaxCharge[imap.first]->GetMaximum()))))*1.2);
     frame->Draw();
@@ -321,6 +330,11 @@ void makeChargeDistributionPerPartition(string file0,  // inputfile
 					string observable   = "maxCharge",   // observable to be considered: maxCharge, S/N ..etc
 					string outputDIR    = "distributionMaxChargePerPartition" // output directory name
 					){
+  gStyle->SetOptStat(0);
+  gROOT->SetBatch(kTRUE);
+  RooMsgService::instance().setSilentMode(kTRUE);
+  RooMsgService::instance().setGlobalKillBelow(RooFit::ERROR) ;
+
   // prepare style and load macros
   setTDRStyle();
   // not dump stat and fit info

@@ -32,7 +32,7 @@ using namespace RooFit;
 // parametrize profile with a gaussian shape
 static bool isGaussian = true;
 // reduce the number of events by
-static int reductionFactor = 1;
+static int reductionFactor = 30;
 // min number of filled bins
 static int minFilledBin    = 4;
 // max allowed delay
@@ -57,9 +57,9 @@ static std::vector<TFile* > files;
 void ChannnelPlots(const std::vector<TTree* > & tree, 
 		   const std::vector<TTree* > & map,
 		   TTree* corrections,		   
-		   std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > channelMap,
-		   std::map<uint32_t,std::shared_ptr<TH1F> > & channelMapMean,
-		   std::map<uint32_t,std::shared_ptr<TH1F> > & channelMapMPV,
+		   std::map<uint32_t,std::map<float,TH1F* > > channelMap,
+		   std::map<uint32_t,TH1F* > & channelMapMean,
+		   std::map<uint32_t,TH1F* > & channelMapMPV,
 		   std::map<uint32_t,int > & fitStatusMean,
 		   std::map<uint32_t,int > & fitStatusMPV,
 		   const string & observable,
@@ -123,9 +123,9 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
       // take the correction from the detid
       corrections->GetEntryWithIndex(detid);
 
-      if(channelMap[detid][delay-correction].get() == 0 or channelMap[detid][delay-correction].get() == NULL){
+      if(channelMap[detid][delay-correction] == 0 or channelMap[detid][delay-correction] == NULL){
 	TH1::AddDirectory(kFALSE);
-	channelMap[detid][delay-correction] =  std::shared_ptr<TH1F> (new TH1F(Form("detid_%d_delay_%.2f",detid,delay-correction),"",nBinsY,yMin,yMax));
+	channelMap[detid][delay-correction] =  new TH1F(Form("detid_%d_delay_%.2f",detid,delay-correction),"",nBinsY,yMin,yMax);
 	channelMap[detid][delay-correction]->Sumw2();
       }
       float value = 0;
@@ -150,19 +150,10 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
     outfile = new TFile((outputDIR+"/distributions_"+observable+".root").c_str(),"RECREATE");
     outfile->cd();
   }
-  std::auto_ptr<TCanvas> canvas(new TCanvas("canvas","",600,625));
-  canvas->SetTickx();
-  canvas->SetTicky();
+
+  TCanvas* canvas = new TCanvas("canvas","",600,625);
   
   // make the convuluated fit as suggested in https://root.cern.ch/root/html/tutorials/fit/langaus.C.html
-  Double_t parameters[4];
-  Double_t parametersHigh[4];
-  Double_t parametersLow[4];
-  const Double_t *fit_parameters;
-  const Double_t *fit_parameters_error;
-  Double_t chi2;
-  Int_t    ndf;  
-
   long int iBadChannelFit = 0;
 
   for(auto iMap : channelMap){
@@ -170,9 +161,9 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
     cout.flush();
     if(iChannel % 100 == 0) cout<<"\r"<<"iChannel "<<100*double(iChannel)/(channelMap.size())<<" % ";
     TH1::AddDirectory(kFALSE);
-    channelMapMPV[iMap.first]  = std::shared_ptr<TH1F> (new TH1F(Form("detid_%d_mpv",iMap.first),"",delayBins.size()-1,&delayBins[0]));    
+    channelMapMPV[iMap.first]  = new TH1F(Form("detid_%d_mpv",iMap.first),"",delayBins.size()-1,&delayBins[0]);    
     TH1::AddDirectory(kFALSE);
-    channelMapMean[iMap.first] = std::shared_ptr<TH1F> (new TH1F(Form("detid_%d_mean",iMap.first),"",delayBins.size()-1,&delayBins[0]));    
+    channelMapMean[iMap.first] = new TH1F(Form("detid_%d_mean",iMap.first),"",delayBins.size()-1,&delayBins[0]);    
 
     for(int iBin = 0; iBin < channelMapMPV[iMap.first]->GetNbinsX()+1; iBin++){
       channelMapMPV[iMap.first]->SetBinContent(iBin+1,0.);
@@ -181,7 +172,7 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
       channelMapMean[iMap.first]->SetBinError(iBin+1,0.);
     }
 
-    for(std::map<float,shared_ptr<TH1F> >::const_iterator itHisto = iMap.second.begin(); itHisto != iMap.second.end(); itHisto++){
+    for(std::map<float,TH1F*>::const_iterator itHisto = iMap.second.begin(); itHisto != iMap.second.end(); itHisto++){
       
       // to fill the Mean --> use always the histogram properties given its binning
       channelMapMean[iMap.first]->SetBinContent(channelMapMPV[iMap.first]->FindBin(itHisto->first),itHisto->second->GetMean());
@@ -204,48 +195,38 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
       }  
       else{
 	
-	// Width of the landau distribution
-	parameters[0] = 2.; parametersHigh[0] = 50.; parametersLow[0] = 0.001;
-	// MPV of landau peak
-	parameters[1] = itHisto->second->GetMean(); parametersHigh[1] = yMax; parametersLow[1] = yMin;
-	// Total area
-	parameters[2] = itHisto->second->Integral(); parametersHigh[2] = itHisto->second->Integral()*5; parametersLow[2] = itHisto->second->Integral()/5;
-	// width of gaussian
-	parameters[3] = 10; parametersHigh[3] = 40; parametersLow[3] = 1.;
-	// create the function
-	TF1 *    fitfunc = new TF1(Form("fit_%s",itHisto->second->GetName()),langaufun,yMin,yMax,4);
-	fitfunc->SetParameters(parameters);
-	fitfunc->SetParNames("Width","MPV","Area","GSigma");
-	fitfunc->SetParLimits(0,parametersLow[0],parametersHigh[0]);
-	fitfunc->SetParLimits(1,parametersLow[1],parametersHigh[1]);
-	fitfunc->SetParLimits(2,parametersLow[2],parametersHigh[2]);
-	fitfunc->SetParLimits(3,parametersLow[3],parametersHigh[3]);
-
-	uint32_t subdetid    = int((iMap.first-0x10000000)/0x2000000);
-	uint32_t barrellayer = int((iMap.first%33554432)/0x4000);
-	uint32_t TIDlayer    = int((iMap.first%33554432)/0x800)%4;
-	uint32_t TECPlayer   = int((iMap.first%33554432)/0x4000)-32;
-	uint32_t TECMlayer   = int((iMap.first%33554432)/0x4000)-16;
+	float xMin   = 0, xMax = 0;
+	int   nBinsX = 0;
+	setLimitsAndBinning(observable,xMin,xMax,nBinsX);
 	
-	// define range for a better description of the peak
-	if(observable == "maxCharge"){	  
-	  if(subdetid == 3) // TIB
-	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-1.5*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+2.5*itHisto->second->GetRMS());
-	  if(subdetid == 4) // TID
-	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-1.5*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+2.5*itHisto->second->GetRMS());
-	  else if(subdetid == 5) //TOB
-	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-2.0*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+3.0*itHisto->second->GetRMS());
-	  else if(subdetid == 6 and (TECPlayer < 6 or TECMlayer < 6))
-	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-1.5*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+2.5*itHisto->second->GetRMS());
-	  else if(subdetid == 6 and (TECMlayer >= 6 or TECMlayer >= 6))
-	    fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-2.0*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+3.0*itHisto->second->GetRMS());
-	}
-	else
-	  fitfunc->SetRange(itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())-1.5*itHisto->second->GetRMS(),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin())+itHisto->second->GetRMS()*3.0);
+	// make the observable                                                                                                                                                                 
+	RooRealVar* charge = new RooRealVar("charge","",xMin,xMax);
+	RooArgList* vars   = new RooArgList(*charge);
+	// covert histogram in a RooDataHist                                                                                                                                                        
+	RooDataHist* chargeDistribution = new RooDataHist(itHisto->second->GetName(),"",*vars,itHisto->second);
+	// Build a Landau PDF                                                                                                                                                                        
+	RooRealVar*  mean_landau  = new RooRealVar("mean_landau","",itHisto->second->GetRMS(),1.,100);
+	RooRealVar*  sigma_landau = new RooRealVar("sigma_landau","",itHisto->second->GetRMS(),1.,100);
+	RooLandau*   landau       = new RooLandau("landau","",*charge,*mean_landau,*sigma_landau);
+	// Build a Gaussian PDF                                                                                                                                                                   
+	RooRealVar*  mean_gauss  = new RooRealVar("mean_gauss","",0.,-150,150);
+	RooRealVar*  sigma_gauss = new RooRealVar("sigma_gauss","",10,1.,50);
+	RooGaussian* gauss       = new RooGaussian("gauss","",*charge,*mean_gauss,*sigma_gauss);
+	// Make a convolution                                                                                                                                                                        
+	RooFFTConvPdf* landauXgauss = new RooFFTConvPdf("landauXgauss","",*charge,*landau,*gauss);
+	// Make an extended PDF                                                                                                                                                                       
+	RooRealVar*   normalization = new RooRealVar("normalization","",itHisto->second->Integral(),itHisto->second->Integral()/5,itHisto->second->Integral()*5);
+	RooExtendPdf* totalPdf      = new RooExtendPdf("totalPdf","",*landauXgauss,*normalization);
 
-	// make fit and get parameters
-	TFitResultPtr fitResult = itHisto->second->Fit(fitfunc,"RSQN");	
-	if(not fitResult.Get() or fitResult->Status() != 0 or fitResult->CovMatrixStatus() <= 1){ 
+	// Perform the FIT                                                                                                                                                                        
+	RooFitResult* fitResult = totalPdf->fitTo(*chargeDistribution,RooFit::Range(xMin,xMax),RooFit::Extended(kTRUE),RooFit::Save(kTRUE));
+
+	// get parameters                                                                                                                                                                            
+	RooArgList pars = fitResult->floatParsFinal();
+	TF1* fitfunc = totalPdf->asTF(*charge,pars,*charge);
+
+		
+	if(fitResult->status() != 0 or fitResult->covQual() <= 1){ 
 	  iBadChannelFit++;	    
 	  channelMapMPV[iMap.first]->SetBinContent(channelMapMPV[iMap.first]->FindBin(itHisto->first),itHisto->second->GetBinCenter(itHisto->second->GetMaximumBin()));
 	  // as error use the error on the mean as a proxy
@@ -253,14 +234,9 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
 	}
 	else{
 
-	  fit_parameters = fitResult->GetParams();
-	  fit_parameters_error = fitResult->GetErrors();
-	  chi2   = fitResult->Chi2();
-	  ndf    = fitResult->Ndf();  
-	  
- 	  channelMapMPV[iMap.first]->SetBinContent(channelMapMPV[iMap.first]->FindBin(itHisto->first),fitfunc->GetMaximumX(yMin,yMax));
+ 	  channelMapMPV[iMap.first]->SetBinContent(channelMapMPV[iMap.first]->FindBin(itHisto->first),fitfunc->GetMaximumX(xMin,xMax));
 	  // as error use the error on Landau MPV as a proxy
-	  channelMapMPV[iMap.first]->SetBinError(channelMapMPV[iMap.first]->FindBin(itHisto->first),fit_parameters_error[1]);
+	  channelMapMPV[iMap.first]->SetBinError(channelMapMPV[iMap.first]->FindBin(itHisto->first),mean_landau->getError());
 	  
 	  if(storeFitOfClusterShape and iChannel %20 == 0){
 	    if(not outfile->GetDirectory(Form("Delay_%.2f",itHisto->first)))
@@ -269,36 +245,77 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
 	    
 	    // plot to store in a root file                                                                                                                                 
 	    canvas->cd();
-	    itHisto->second->GetYaxis()->SetTitle("Events");
-	    itHisto->second->GetXaxis()->SetTitle(("Cluster "+observable).c_str());
-	    itHisto->second->GetYaxis()->SetTitleSize(0.045);
-	    itHisto->second->GetXaxis()->SetTitleSize(0.045);
-	    itHisto->second->GetYaxis()->SetLabelSize(0.038);
-	    itHisto->second->GetXaxis()->SetLabelSize(0.038);
+	    itHisto->second->Scale(1./itHisto->second->Integral(),"width");
+
+	    TH1* frame = (TH1*) itHisto->second->Clone(Form("frame_%s",itHisto->second->GetName()));
+	    frame->Reset();
+	    frame->GetYaxis()->SetTitle("a.u.");
+	    if(observable == "maxCharge")
+	      frame->GetXaxis()->SetTitle("Leading strip charge (ADC)");
+	    else
+	      frame->GetXaxis()->SetTitle("Signal over Noise");
+	    
+	    frame->GetXaxis()->SetTitleOffset(1.1);
+	    frame->GetYaxis()->SetTitleOffset(1.1);
+	    frame->GetYaxis()->SetTitleSize(0.040);
+	    frame->GetXaxis()->SetTitleSize(0.040);
+	    frame->GetYaxis()->SetLabelSize(0.035);
+	    frame->GetXaxis()->SetLabelSize(0.035);
+	    frame->Draw();
+
 	    itHisto->second->SetMarkerColor(kBlack);
+	    itHisto->second->SetMarkerSize(1);
 	    itHisto->second->SetMarkerStyle(20);
-	    itHisto->second->Draw("EP");
+	    itHisto->second->SetLineColor(kBlack);
+
 	    fitfunc->SetLineWidth(2);
 	    fitfunc->SetLineColor(kRed);
 	    fitfunc->Draw("same");
 	    itHisto->second->Draw("EPsame");
-	    TLegend leg (0.6,0.6,0.95,0.92);
+
+	    TPaveText leg (0.55,0.55,0.9,0.80,"NDC");
+	    leg.SetTextAlign(11);
+	    leg.SetTextFont(42);
 	    leg.SetFillColor(0);
 	    leg.SetFillStyle(0);
-	    leg.SetBorderSize(0);
-	    leg.AddEntry((TObject*)0,Form("#chi^{2}/ndf = %.2f",chi2/ndf),"");
-	    leg.AddEntry((TObject*)0,Form("Pdf Max = %.2f",fitfunc->GetMaximumX(yMin,yMax)),"");
-	    leg.AddEntry((TObject*)0,Form("Landau MPV = %.2f #pm %.2f",fit_parameters[1],fit_parameters_error[1]),"");
-	    leg.AddEntry((TObject*)0,Form("Landau Width = %.2f #pm %.2f",fit_parameters[0],fit_parameters_error[0]),"");
-	    leg.AddEntry((TObject*)0,Form("Gaussian #sigma = %.2f #pm %.2f",fit_parameters[3],fit_parameters_error[3]),"");
-	    leg.AddEntry((TObject*)0,Form("Normalization = %.2f #pm %.2f",fit_parameters[2],fit_parameters_error[2]),"");
+	    leg.AddText("");
+	    leg.AddText(Form("Landau Mean  = %.1f #pm %.1f",mean_landau->getVal(),mean_landau->getError()));
+	    leg.AddText(Form("Landau Width = %.1f #pm %.1f",sigma_landau->getVal(),sigma_landau->getError()));
+	    leg.AddText(Form("Gauss Mean  = %.1f #pm %.1f",mean_gauss->getVal(),mean_gauss->getError()));
+	    leg.AddText(Form("Gauss Width = %.1f #pm %.1f",sigma_gauss->getVal(),sigma_gauss->getError()));
+	    leg.AddText(Form("Integral = %.1f #pm %.1f",normalization->getVal(),normalization->getError()));
+
+	    // to calculate the chi2                                                                                                                                                            
+	    RooPlot* rooframe = charge->frame();
+	    chargeDistribution->plotOn(rooframe);
+	    totalPdf->plotOn(rooframe);
+	    float chi2 = rooframe->chiSquare(pars.getSize());
+	    leg.AddText(Form("#chi2/ndf = %.3f",chi2));
 	    leg.Draw("same");
+
 	    canvas->Modified();
-	    CMS_lumi(canvas.get(),"");
+	    CMS_lumi(canvas,"",false);
 	    canvas->Write(itHisto->second->GetName());
+	    if(frame) delete frame;
+	    if(rooframe) delete rooframe;
 	  }
 	}
-	delete fitfunc;	
+
+	if(totalPdf) delete totalPdf;
+	if(landauXgauss) delete landauXgauss;
+	if(gauss) delete gauss;
+	if(landau) delete landau;
+	if(chargeDistribution) delete chargeDistribution;
+	if(normalization) delete normalization;
+	if(sigma_gauss) delete sigma_gauss;
+	if(mean_gauss) delete mean_gauss;
+	if(mean_landau) delete mean_landau;
+	if(sigma_landau) delete sigma_landau;
+	if(charge) delete charge;
+	if(fitResult) delete fitResult;
+	if(vars) delete vars;
+	if(fitfunc) delete fitfunc;
+
       }      
     }    
   }
@@ -361,7 +378,7 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
 }
 
 
-void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<TH1F> > & mapHist, map<uint32_t,int> & fitStatus, const string & outputDIR, const string & postfix, const string & observable){
+void saveOutputTree(const vector<TTree*> & readoutMap, map<uint32_t,TH1F* > & mapHist, map<uint32_t,int> & fitStatus, const string & outputDIR, const string & postfix, const string & observable){
 
   TFile*  outputFile;
   TTree*  outputTree;
@@ -470,7 +487,7 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
 	  outputFile->mkdir("binEntries");
 	outputFile->cd("binEntries");
 	if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
-	  std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	  TCanvas* c1b = prepareCanvas(Form("detid_%d",detid),observable);
 	  plotAll(c1b,mapHist[detid]);
 	  c1b->Write();
 	}
@@ -485,7 +502,7 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
 	  outputFile->mkdir("fitStatus");
 	outputFile->cd("fitStatus");
 	if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
-	  std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	  TCanvas* c1b = prepareCanvas(Form("detid_%d",detid),observable);
 	  plotAll(c1b,mapHist[detid]);
 	  c1b->Write();
 	}
@@ -500,7 +517,7 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
 	  outputFile->mkdir("peakOutRange");
 	outputFile->cd("peakOutRange");
 	if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
-	  std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	  TCanvas* c1b = prepareCanvas(Form("detid_%d",detid),observable);
 	  plotAll(c1b,mapHist[detid]);
 	  c1b->Write();
 	}
@@ -515,7 +532,7 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
 	  outputFile->mkdir("smallAmplitude");
 	outputFile->cd("smallAmplitude");
 	if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
-	  std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	  TCanvas* c1b = prepareCanvas(Form("detid_%d",detid),observable);
 	  plotAll(c1b,mapHist[detid]);
 	  c1b->Write();
 	}
@@ -530,7 +547,7 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
 	  outputFile->mkdir("nonSignificantLargeShift");
 	outputFile->cd("nonSignificantLargeShift");
 	if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
-	  std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	  TCanvas* c1b = prepareCanvas(Form("detid_%d",detid),observable);
 	  plotAll(c1b,mapHist[detid]);
 	  c1b->Write();
 	}
@@ -545,7 +562,7 @@ void saveOutputTree(const vector<TTree* > & readoutMap, map<uint32_t,shared_ptr<
 	  outputFile->mkdir("largeGaussSigma");
 	outputFile->cd("largeGaussSigma");
 	if(gDirectory->GetListOfKeys()->FindObject(Form("detid_%d",detid)) == 0){
-	  std::shared_ptr<TCanvas> c1b = prepareCanvas(Form("detid_%d",detid),observable);
+	  TCanvas* c1b = prepareCanvas(Form("detid_%d",detid),observable);
 	  plotAll(c1b,mapHist[detid]);
 	  c1b->Write();
 	}
@@ -637,9 +654,9 @@ void delayValidationPerModule(
   TTree* delayCorrections = (TTree*)_file1->FindObjectAny("delayCorrections");
   
   //map with key the detId number, one profile associated to it
-  std::map<uint32_t,std::map<float,std::shared_ptr<TH1F> > > channelMap; // for each delay value (i.e. run) gram for each detid storing the observable distribution
-  std::map<uint32_t,std::shared_ptr<TH1F> > channelMapMean;
-  std::map<uint32_t,std::shared_ptr<TH1F> > channelMapMPV;
+  std::map<uint32_t,std::map<float,TH1F* > > channelMap; // for each delay value (i.e. run) gram for each detid storing the observable distribution
+  std::map<uint32_t,TH1F* > channelMapMean;
+  std::map<uint32_t,TH1F* > channelMapMPV;
   std::map<uint32_t,int > fitStatusMean;
   std::map<uint32_t,int > fitStatusMPV;
   ChannnelPlots(clusters,readoutMap,delayCorrections,channelMap,channelMapMean,channelMapMPV,fitStatusMean,fitStatusMPV,observable,outputDIR);  
