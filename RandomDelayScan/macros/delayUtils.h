@@ -148,6 +148,7 @@ TFitResultPtr fitProfile(TProfile* prof, bool gaus = false, string options = "",
   TFitResultPtr result = prof->Fit(pulse,(options+"S").c_str());
   if(verbosity)
     std::cout << "Profile Name "<<prof->GetName()<<" "<<"Maximum at " << pulse->GetParameter(1) << std::endl;
+  if(pulse) delete pulse;
   return result;
 }
 
@@ -168,7 +169,11 @@ TFitResultPtr fitHistogram(TH1F* histo, bool gaus = false, string options = "", 
   TFitResultPtr result = histo->Fit(pulse,(options+"S").c_str());
   if(verbosity)
     std::cout << "Histogram Name "<<histo->GetName()<<" "<<"Maximum at " << pulse->GetParameter(1) << std::endl;
-  return result;
+
+  if(pulse) delete pulse;
+  
+  return result;  
+
 }
 
 // prepare a canvas for the final plot

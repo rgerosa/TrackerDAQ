@@ -32,7 +32,7 @@ using namespace RooFit;
 // parametrize profile with a gaussian shape
 static bool isGaussian = true;
 // reduce the number of events by
-static int reductionFactor = 30;
+static int reductionFactor = 1;
 // min number of filled bins
 static int minFilledBin    = 4;
 // max allowed delay
@@ -295,6 +295,7 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
 
 	    canvas->Modified();
 	    CMS_lumi(canvas,"",false);
+	    frame->GetYaxis()->SetRangeUser(0,itHisto->second->GetMaximum()*1.5);
 	    canvas->Write(itHisto->second->GetName());
 	    if(frame) delete frame;
 	    if(rooframe) delete rooframe;
