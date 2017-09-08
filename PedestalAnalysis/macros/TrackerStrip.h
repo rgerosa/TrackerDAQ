@@ -27,7 +27,6 @@ class TrackerStrip {
        fecRing_  == a.fecRing_ and
        ccuAdd_   == a.ccuAdd_  and
        ccuCh_    == a.ccuCh_   and
-       fedKey_   == a.fedKey_  and
        lldCh_    == a.lldCh_   and
        detid_    == a.detid_   and
        apvid_    == a.apvid_   and
