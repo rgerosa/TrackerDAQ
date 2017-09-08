@@ -229,7 +229,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   ///// Bad Strip list
   vector<TrackerStrip> badStripAggressive;
   vector<TrackerStrip> badStripConservative;
-  vector<TrackerStrip> badStripFinal;
+  vector<TrackerStrip> badStripFinal;  
   vector<TrackerStrip> badStripVsOffline;
   vector<TrackerStrip> badStripVsOfflineWithSignificance;
 
@@ -613,6 +613,7 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
       moduleNumeratorConservative[detid] = moduleNumeratorConservative[detid]+1;
       storeOutputCanvas(canvas,noiseHist,noiseFit,name,fitParam);      
       // store it in order to dispaly on the tracker map
+      badStripFinal.push_back(TrackerStrip(fecCrate,fecSlot,fecRing,ccuAdd,ccuChan,uint32_t(atoi(fedKeyStr.c_str())),lldChannel,detid,apvId,stripId));
       badStripConservative.push_back(TrackerStrip(fecCrate,fecSlot,fecRing,ccuAdd,ccuChan,uint32_t(atoi(fedKeyStr.c_str())),lldChannel,detid,apvId,stripId));
       // final one
       nbadCombinedFinal++;
@@ -658,6 +659,8 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
       // final one
       nbadCombinedFinal++;
       moduleNumeratorFinal[detid] += 1;
+
+      badStripFinal.push_back(TrackerStrip(fecCrate,fecSlot,fecRing,ccuAdd,ccuChan,uint32_t(atoi(fedKeyStr.c_str())),lldChannel,detid,apvId,stripId));
 
     }
     
@@ -913,6 +916,15 @@ void plotPedestalAnalysis(string inputFileName, string outputDIR, bool testDoubl
   ofstream badStripDumpFinal ((outputDIR+"/badStripDumpFinal.txt").c_str());
   for(auto badstrip : badStripFinal){
     badStripDumpFinal<< badstrip.detid_ <<" "<<badstrip.lldCh_<<" "<<badstrip.apvid_<<" "<<badstrip.stripid_<<" \n";
+  }
+
+  badStripDumpFinal.close();
+
+
+  // ------> detailed info of bad strips
+  ofstream badStripDumpFinal_complete ((outputDIR+"/badStripDumpFinal_complete.txt").c_str());
+  for(auto badstrip : badStripFinal){
+    badStripDumpFinal_complete<< badstrip.fecCrate_ <<" "<<badstrip.fecSlot_<<" "<<badstrip.fecRing_<<" "<<badstrip.ccuAdd_<<" "<<badstrip.ccuCh_<<" "<<badstrip.fedKey_<<" "<<badstrip.lldCh_<<" "<<badstrip.apvid_<<" "<<badstrip.stripid_<<" \n";
   }
 
   badStripDumpFinal.close();
