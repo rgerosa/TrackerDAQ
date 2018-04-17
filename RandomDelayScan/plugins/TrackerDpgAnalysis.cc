@@ -29,7 +29,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
-#include <string.h>
+#include <string>
 #include <sstream>
 #include <fstream>
 
@@ -50,12 +50,12 @@
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 #include "CommonTools/TrackerMap/interface/TrackerMap.h"
 #include <CondFormats/SiStripObjects/interface/FedChannelConnection.h>
-#include <CondFormats/SiStripObjects/interface/SiStripFedCabling.h>
+#include <Condformats/SiStripObjects/interface/SiStripFedCabling.h>
 #include <CondFormats/DataRecord/interface/SiStripFedCablingRcd.h>
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/CommonDetUnit/interface/GeomDetType.h"
-#include "Geometry/CommonDetUnit/interface/GeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/GeomDet.h"
 #include <Geometry/CommonTopologies/interface/Topology.h>
 #include <Geometry/CommonTopologies/interface/StripTopology.h>
 #include <Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h>
@@ -109,7 +109,7 @@ typedef math::XYZPoint Point;
 class TrackerDpgAnalysis : public edm::EDAnalyzer {
    public:
       explicit TrackerDpgAnalysis(const edm::ParameterSet&);
-      ~TrackerDpgAnalysis();
+      ~TrackerDpgAnalysis() override;
 
    protected:
       std::vector<double> onTrackAngles(edm::Handle<edmNew::DetSetVector<SiStripCluster> >&,const std::vector<Trajectory>& );
@@ -128,9 +128,9 @@ class TrackerDpgAnalysis : public edm::EDAnalyzer {
       std::map<uint32_t,float> delay(const std::vector<std::string>&);
 
    private:
-      virtual void beginRun(const edm::Run&, const edm::EventSetup&) override;
-      virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
-      virtual void endJob() override ;
+      void beginRun(const edm::Run&, const edm::EventSetup&) override;
+      void analyze(const edm::Event&, const edm::EventSetup&) override;
+      void endJob() override ;
 
       // ----------member data ---------------------------
       static const int nMaxPVs_ = 50;
@@ -665,7 +665,7 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    }
 
    // sanity check
-   if(!(trackCollection.size()>0 && trajectoryCollection.size()>0)) return;
+   if(!(!trackCollection.empty() && !trajectoryCollection.empty())) return;
 
    // build the reverse map tracks -> vertex
    std::vector<std::map<size_t,int> > trackVertices;
@@ -789,7 +789,7 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
        yPCA_ = itTrack->vertex().y();
        zPCA_ = itTrack->vertex().z();
        try { // only one track collection (at best) is connected to the main vertex
-         if(vertexColl.size()>0 && !vertexColl.begin()->isFake()) {
+	 if(!vertexColl.empty() && !vertexColl.begin()->isFake()) {
            trkWeightpvtx_ =  vertexColl.begin()->trackWeight(itTrack);
          } else
 	   trkWeightpvtx_ = 0.;
@@ -1029,7 +1029,7 @@ TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
        }
      }
    }
-   if(delayMap.size()) tmap.save(true,-10,10,"delaymap.png",1400,800);
+   if(delayMap.empty()) tmap.save(true,-10,10,"delaymap.png",1400,800);
 
    // cabling II (DCU map)
    std::ifstream cablingFile(cablingFileName_.c_str());

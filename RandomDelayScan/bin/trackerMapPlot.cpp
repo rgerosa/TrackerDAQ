@@ -44,7 +44,7 @@ int main(int argc, char**argv){
     themap.fill_current_val(imap.first,imap.second);              
   }
   
-  themap.save(true,min,max,outputname+".png",1500,800,zaxisname);
-  themap.save(true,min,max,outputname+".pdf",1500,800,zaxisname);
-  themap.save(true,min,max,outputname+".root",1500,800,zaxisname);
+  themap.save(true,min,max,outputname+".png",1500,800);
+  themap.save(true,min,max,outputname+".pdf",1500,800);
+  themap.save(true,min,max,outputname+".root",1500,800);
 }
