@@ -200,10 +200,10 @@ if options.isRawFile or options.isDatFile:
             process.RawToDigi* ## unpacker, make digis
             process.skimming*  ## physics declared skim
             process.hltfiter*  ## HLT skim
-            process.reconstruction_trackingOnly) ## local and gloabl reco
-            #process.doAlldEdXEstimators* ## de/dx step 1
-            #process.dedxMedian* ## de/dx step 2
-            #process.analysis)
+            process.reconstruction_trackingOnly*## local and gloabl reco
+            process.doAlldEdXEstimators* ## de/dx step 1
+            process.dedxMedian* ## de/dx step 2
+            process.analysis)
     else: ## drop the analyzer
         process.p = cms.Path(
             process.RawToDigi* 
