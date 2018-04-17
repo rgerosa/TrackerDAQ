@@ -1029,7 +1029,16 @@ TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
        }
      }
    }
-   if(delayMap.empty()) tmap.save(true,-10,10,"delaymap.png",1400,800);
+   if(delayMap.empty()){
+     TString mapname (delayFileNames.front());
+     mapname.ReplaceAll(".xml","");
+     mapname.RaplaceAll("TI_27-JAN-2010_2_","");
+     mapname.RaplaceAll("TM_09-JUN-2009_1","");
+     mapname.RaplaceAll("TO_30-JUN-2009_1_","");
+     mapname.RaplaceAll("TP_09-JUN-2009_1_","");
+     mapname = Form("DelayMap_"+mapname);
+     tmap.save(true,-10,10,mapname+".png",1400,800);
+   }
 
    // cabling II (DCU map)
    std::ifstream cablingFile(cablingFileName_.c_str());
