@@ -96,7 +96,7 @@ if __name__ == '__main__':
         job.write('cd '+currentDIR+"\n");
         job.write('eval `scramv1 runtime -sh` \n');
         job.write('cd - \n');
-        job.write('cp '+currentDIR+'/trackerdpganalysis_cfg.py ./ \n');
+        job.write('cp '+currentDIR+'../trackerdpganalysis_cfg.py ./ \n');
         job.write('cp '+currentDIR+'/*delaystep*'+str(options.delayStep)+'*xml ./ \n');
         job.write('cp '+currentDIR+'/'+options.jsonFile+' ./ \n');
         job.write('cmsRun trackerdpganalysis_cfg.py inputFiles=root://eoscms.cern.ch//'+str(filename)+' delayStep='+str(options.delayStep)+' eventToSkip='+str(starEvent[ijob])+' maxEvents='+str(options.eventsPerJob)+' ouputFileName=trackerDPG_'+str(njob)+".root jsonFile="+options.jsonFile+" isRawFile="+str(isRawFile)+" isDatFile="+str(isDatFile)+"\n");
