@@ -38,7 +38,7 @@ options.parseArguments()
 import FWCore.PythonUtilities.LumiList as LumiList
 from Configuration.StandardSequences.Eras import eras
 
-process = cms.Process("clusterAnalysis")
+process = cms.Process("clusterAnalysis",eras.Run2_2018)
 process.load("FWCore.MessageService.MessageLogger_cfi")
 process.MessageLogger.destinations = ['cout', 'cerr']
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
@@ -61,10 +61,14 @@ if options.jsonFile != "": ### to be checked / created by hand when the runs are
 # Conditions (Global Tag is used here):
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 from Configuration.AlCa.GlobalTag import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run2_data_GRun', '')
+process.GlobalTag = GlobalTag(process.GlobalTag, '101X_dataRun2_Prompt_v9', '')
 
 process.options = cms.untracked.PSet(
-    wantSummary = cms.untracked.bool(True))
+    allowUnscheduled = cms.untracked.bool(True),
+    wantSummary = cms.untracked.bool(True),
+    numberOfThreads = cms.untracked.uint32(1),
+    numberOfStreams = cms.untracked.uint32(1))
+
 
 #Geometry and magnetic field to be loaded
 process.load("Configuration.StandardSequences.GeometryDB_cff")
@@ -87,7 +91,6 @@ process.hltfiter = cms.EDFilter("HLTHighLevel",
   throw = cms.bool(True),
   andOr = cms.bool(True) ## logical OR between trigger bits                               
 )
-
 
 
 ### output file definition
@@ -142,6 +145,8 @@ if options.isRawFile or options.isDatFile:
     process.initialStepTracksPreSplitting.TrajectoryInEvent = cms.bool(True);
     process.jetCoreRegionalStepTracks.TrajectoryInEvent = cms.bool(True);
     process.lowPtTripletStepTracks.TrajectoryInEvent = cms.bool(True);
+    process.highPtTripletStepTracks.TrajectoryInEvent = cms.bool(True);
+    process.lowPtQuadStepTracks.TrajectoryInEvent = cms.bool(True);
     process.pixelPairStepTracks.TrajectoryInEvent = cms.bool(True);
     process.detachedTripletStepTracks.TrajectoryInEvent = cms.bool(True);
     process.mixedTripletStepTracks.TrajectoryInEvent = cms.bool(True);
@@ -149,7 +154,7 @@ if options.isRawFile or options.isDatFile:
     process.tobTecStepTracks.TrajectoryInEvent = cms.bool(True);
     process.muonSeededTracksInOut.TrajectoryInEvent = cms.bool(True);
     process.muonSeededTracksOutIn.TrajectoryInEvent = cms.bool(True);
-
+    process.detachedQuadStepTracks.TrajectoryInEvent = cms.bool(True);
 
 ### Main Analyzer
 process.analysis = cms.EDAnalyzer('TrackerDpgAnalysis',
@@ -182,7 +187,7 @@ process.analysis = cms.EDAnalyzer('TrackerDpgAnalysis',
                                   PSUFileName =  cms.untracked.string("PSUmapping.csv")
                                   )
 
-if not options.isRawFile and not options.isDatFile: 
+if  options.isRawFile or options.isDatFile: 
     process.analysis.TracksLabel = cms.VInputTag(cms.InputTag("generalTracks"))
 
 
@@ -191,19 +196,21 @@ if options.inputDirectory != "":
         process.analysis.DelayFileNames[string] = options.inputDirectory+"/"+process.analysis.DelayFileNames[string];
     process.analysis.PSUFileName = options.inputDirectory+"/PSUmapping.csv";
 
-    
 ### Define the Path to be executed
 if options.isRawFile or options.isDatFile:
 
+    process.doAlldEdXEstimators += process.dedxMedian
+
     if not options.dropAnalyzerDumpEDM:
         process.p = cms.Path(
-            process.RawToDigi* ## unpacker, make digis
-            process.skimming*  ## physics declared skim
-            process.hltfiter*  ## HLT skim
-            process.reconstruction_trackingOnly*## local and gloabl reco
-            process.doAlldEdXEstimators* ## de/dx step 1
-            process.dedxMedian* ## de/dx step 2
-            process.analysis)
+                        process.RawToDigi*
+                        process.skimming*
+                        process.hltfiter*  ## HLT skim                                                                                                                                            
+                        process.reconstruction_trackingOnly* ## local and gloabl reco                                                                                                              
+                        process.doAlldEdXEstimators*
+                        process.analysis
+                        )
+
     else: ## drop the analyzer
         process.p = cms.Path(
             process.RawToDigi* 
@@ -223,6 +230,9 @@ else: ## in this case one just need to re-fit the tracks
         process.p = cms.Path(process.skimming*
                              process.hltfiter*  ## HLT skim
                              process.refit)
+
+
+process.schedule = cms.Schedule(process.p);
 
 processDumpFile = open('processDump.py', 'w')
 print >> processDumpFile, process.dumpPython()

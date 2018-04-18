@@ -39,7 +39,7 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/ESHandle.h"
@@ -50,7 +50,6 @@
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 #include "CommonTools/TrackerMap/interface/TrackerMap.h"
 #include <CondFormats/SiStripObjects/interface/FedChannelConnection.h>
-#include <Condformats/SiStripObjects/interface/SiStripFedCabling.h>
 #include <CondFormats/DataRecord/interface/SiStripFedCablingRcd.h>
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
@@ -106,7 +105,7 @@
 //
 typedef math::XYZPoint Point;
 
-class TrackerDpgAnalysis : public edm::EDAnalyzer {
+class TrackerDpgAnalysis : public edm::one::EDAnalyzer<edm::one::SharedResources,edm::one::WatchRuns>  {
    public:
       explicit TrackerDpgAnalysis(const edm::ParameterSet&);
       ~TrackerDpgAnalysis() override;
@@ -128,9 +127,13 @@ class TrackerDpgAnalysis : public edm::EDAnalyzer {
       std::map<uint32_t,float> delay(const std::vector<std::string>&);
 
    private:
-      void beginRun(const edm::Run&, const edm::EventSetup&) override;
-      void analyze(const edm::Event&, const edm::EventSetup&) override;
+  
+      void beginJob() override ;
       void endJob() override ;
+
+      virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
+      virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
+      virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
 
       // ----------member data ---------------------------
       static const int nMaxPVs_ = 50;
@@ -220,6 +223,9 @@ TrackerDpgAnalysis::TrackerDpgAnalysis(const edm::ParameterSet& iConfig):hltConf
    PSUname_    = new char[256];
    pset_ = iConfig;
 
+   usesResource();
+   usesResource("TFileService");
+
    // enable/disable functionalities
    functionality_offtrackClusters_ = iConfig.getUntrackedParameter<bool>("keepOfftrackClusters",true);
    functionality_ontrackClusters_  = iConfig.getUntrackedParameter<bool>("keepOntrackClusters",true);
@@ -235,8 +241,8 @@ TrackerDpgAnalysis::TrackerDpgAnalysis(const edm::ParameterSet& iConfig):hltConf
    clusterToken_      = consumes<edmNew::DetSetVector<SiStripCluster> >(iConfig.getParameter<edm::InputTag>("ClustersLabel"));
    pixelclusterToken_ = consumes<edmNew::DetSetVector<SiPixelCluster> >(iConfig.getParameter<edm::InputTag>("PixelClustersLabel"));
    trackLabels_       = iConfig.getParameter<std::vector<edm::InputTag> >("TracksLabel");
-   trackTokens_       = edm::vector_transform(trackLabels_, [this](edm::InputTag const & tag){return consumes<reco::TrackCollection>(tag);});
-   trajectoryTokens_  = edm::vector_transform(trackLabels_, [this](edm::InputTag const & tag){return consumes<std::vector<Trajectory> >(tag);});
+   trackTokens_         = edm::vector_transform(trackLabels_, [this](edm::InputTag const & tag){return consumes<reco::TrackCollection>(tag);});
+   trajectoryTokens_    = edm::vector_transform(trackLabels_, [this](edm::InputTag const & tag){return consumes<std::vector<Trajectory> >(tag);});
    trajTrackAssoTokens_ = edm::vector_transform(trackLabels_, [this](edm::InputTag const & tag){return consumes<TrajTrackAssociationCollection>(tag);});
    dedx1Token_        = consumes<edm::ValueMap<reco::DeDxData> >(iConfig.getParameter<edm::InputTag>("DeDx1Label"));
    dedx2Token_        = consumes<edm::ValueMap<reco::DeDxData> >(iConfig.getParameter<edm::InputTag>("DeDx2Label"));
@@ -251,7 +257,7 @@ TrackerDpgAnalysis::TrackerDpgAnalysis(const edm::ParameterSet& iConfig):hltConf
    // initialize arrays
    size_t trackSize(trackLabels_.size());
    ntracks_ = new uint32_t[trackSize];
-   ntrajs_ = new uint32_t[trackSize];
+   ntrajs_  = new uint32_t[trackSize];
    globaltrackid_  = new uint32_t[trackSize];
    trackid_ = new uint32_t[trackSize];
    lowPixelProbabilityFraction_ = new float[trackSize];
@@ -568,6 +574,7 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    }
    orbitL1_ = fdlWord.orbitNr();
    physicsDeclared_ = fdlWord.physicsDeclared();
+
    edm::Handle<edm::TriggerResults> trh;
    iEvent.getByToken(HLTToken_, trh);
    HLTDecisionBits_.clear();
@@ -580,8 +587,8 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    iEvent.getByToken(bsToken_,recoBeamSpotHandle);
    reco::BeamSpot bs = *recoBeamSpotHandle;
    const Point beamSpot = recoBeamSpotHandle.isValid() ?
-                           Point(recoBeamSpotHandle->x0(), recoBeamSpotHandle->y0(), recoBeamSpotHandle->z0()) :
-			   Point(0, 0, 0);
+     Point(recoBeamSpotHandle->x0(), recoBeamSpotHandle->y0(), recoBeamSpotHandle->z0()) :
+     Point(0, 0, 0);
    if(recoBeamSpotHandle.isValid()) {
      bsX0_ = bs.x0();
      bsY0_ = bs.y0();
@@ -715,21 +722,6 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    std::vector<double> clusterOntrackAngles = onTrackAngles(clusters,trajectoryCollection[0]);
    std::vector<std::pair<double,double> > pixclusterOntrackAngles = onTrackAngles(pixelclusters,trajectoryCollection[0]);
 
-/*
-  // iterate over trajectories
-  // note: when iterating over trajectories, it might be simpler to use the tracks/trajectories association map
-  for(std::vector<Trajectory>::const_iterator traj = trajVec.begin(); traj< trajVec.end(); ++traj) {
-  }
-  // loop over all rechits from trajectories
-  //iterate over trajectories
-  for(std::vector<Trajectory>::const_iterator traj = trajVec.begin(); traj< trajVec.end(); ++traj) {
-    Trajectory::DataContainer measurements = traj->measurements();
-    // iterate over measurements
-    for(Trajectory::DataContainer::iterator meas = measurements.begin(); meas!= measurements.end(); ++meas) {
-    }
-  }
-*/
-
    // determine if each cluster is on a track or not, and record the trackid
    std::vector< std::vector<int> > stripClusterOntrackIndices;
    for(size_t i = 0; i<trackSize; ++i) {
@@ -862,6 +854,7 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    nclusters_ = 0;
    std::vector<double>::const_iterator angleIt = clusterOntrackAngles.begin();
    uint32_t localCounter = 0;
+
    for (edmNew::DetSetVector<SiStripCluster>::const_iterator DSViter=clusters->begin(); DSViter!=clusters->end();DSViter++ ) {
      edmNew::DetSet<SiStripCluster>::const_iterator begin=DSViter->begin();
      edmNew::DetSet<SiStripCluster>::const_iterator end  =DSViter->end();
@@ -958,13 +951,16 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    sphericity_ = shape.sphericity();
    planarity_  = shape.planarity();
    aplanarity_ = shape.aplanarity();
-
+   
    // fill event tree
    if(functionality_events_) event_->Fill();
-
+   
 }
 
 // ------------ method called once each job just before starting event loop  ------------
+
+void TrackerDpgAnalysis::endRun(const edm::Run& iRun, const edm::EventSetup& iSetup) {}
+
 void
 TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup)
 {
@@ -1029,15 +1025,17 @@ TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
        }
      }
    }
-   if(delayMap.empty()){
-     TString mapname (delayFileNames.front());
+
+   if(not delayMap.empty()){
+     TString mapname (delayFileNames_.front());
      mapname.ReplaceAll(".xml","");
-     mapname.RaplaceAll("TI_27-JAN-2010_2_","");
-     mapname.RaplaceAll("TM_09-JUN-2009_1","");
-     mapname.RaplaceAll("TO_30-JUN-2009_1_","");
-     mapname.RaplaceAll("TP_09-JUN-2009_1_","");
+     mapname.ReplaceAll("TI_27-JAN-2010_2_","");
+     mapname.ReplaceAll("TM_09-JUN-2009_1","");
+     mapname.ReplaceAll("TO_30-JUN-2009_1_","");
+     mapname.ReplaceAll("TP_09-JUN-2009_1_","");
+     mapname.ReplaceAll("crab/","");
      mapname = Form("DelayMap_"+mapname);
-     tmap.save(true,-10,10,mapname+".png",1400,800);
+     tmap.save(true,-10,10,std::string(mapname+".png"),1400,800);
    }
 
    // cabling II (DCU map)
@@ -1065,20 +1063,17 @@ TrackerDpgAnalysis::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
+void TrackerDpgAnalysis::beginJob(){}
+
 void
 TrackerDpgAnalysis::endJob() {
+
   for(size_t i = 0; i<tracks_.size();++i) {
     char buffer[256];
     sprintf(buffer,"trackid%lu",(unsigned long)i);
     if(tracks_[i]->GetEntries()) tracks_[i]->BuildIndex(buffer,"eventid");
   }
-  /* not needed: missing hits is a high-level quantity
-  for(size_t i = 0; i<missingHits_.size();++i) {
-    char buffer[256];
-    sprintf(buffer,"trackid%lu",(unsigned long)i);
-    if(missingHits_[i]->GetEntries()) missingHits_[i]->BuildIndex(buffer);
-  }
-  */
+
   if(vertices_->GetEntries()) vertices_->BuildIndex("vertexid","eventid");
   if(event_->GetEntries()) event_->BuildIndex("runid","eventid");
   if(psumap_->GetEntries()) psumap_->BuildIndex("dcuId");
