@@ -560,17 +560,23 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    L1GtFdlWord fdlWord = gtrr->gtFdlWord();
    L1DecisionBits_.clear();
    DecisionWord L1decision = fdlWord.gtDecisionWord();
-   for(size_t bit=0;bit<L1decision.size();++bit) {
-     L1DecisionBits_.push_back(L1decision[bit]);
-   }   
+   if(functionality_events_){
+     for(size_t bit=0;bit<L1decision.size();++bit) {
+       L1DecisionBits_.push_back(L1decision[bit]);
+     }   
+   }
    DecisionWordExtended L1decisionE = fdlWord.gtDecisionWordExtended();
-   for(size_t bit=0;bit<L1decisionE.size();++bit) {
-     L1DecisionBits_.push_back(L1decisionE[bit]);
+   if(functionality_events_){
+     for(size_t bit=0;bit<L1decisionE.size();++bit) {
+       L1DecisionBits_.push_back(L1decisionE[bit]);
+     }
    }
    TechnicalTriggerWord L1technical = fdlWord.gtTechnicalTriggerWord();
    L1TechnicalBits_.clear();
-   for(size_t bit=0;bit<L1technical.size();++bit) {
-     L1TechnicalBits_.push_back(L1technical[bit]);
+   if(functionality_events_){
+     for(size_t bit=0;bit<L1technical.size();++bit) {
+       L1TechnicalBits_.push_back(L1technical[bit]);
+     }
    }
    orbitL1_ = fdlWord.orbitNr();
    physicsDeclared_ = fdlWord.physicsDeclared();
@@ -579,16 +585,16 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    iEvent.getByToken(HLTToken_, trh);
    HLTDecisionBits_.clear();
    size_t ntrh = trh->size();
-   for(size_t bit=0;bit<trh->size();++bit)
-     HLTDecisionBits_.push_back(bit<ntrh ? (bool)(trh->accept(bit)): false);
-
+   if(functionality_events_){
+     for(size_t bit=0;bit<trh->size();++bit)
+       HLTDecisionBits_.push_back(bit<ntrh ? (bool)(trh->accept(bit)): false);
+   }
+   
    // load beamspot
    edm::Handle<reco::BeamSpot> recoBeamSpotHandle;
    iEvent.getByToken(bsToken_,recoBeamSpotHandle);
    reco::BeamSpot bs = *recoBeamSpotHandle;
-   const Point beamSpot = recoBeamSpotHandle.isValid() ?
-     Point(recoBeamSpotHandle->x0(), recoBeamSpotHandle->y0(), recoBeamSpotHandle->z0()) :
-     Point(0, 0, 0);
+
    if(recoBeamSpotHandle.isValid()) {
      bsX0_ = bs.x0();
      bsY0_ = bs.y0();
@@ -611,9 +617,11 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    iEvent.getByToken(vertexToken_,vertexCollectionHandle);
    const reco::VertexCollection vertexColl = *(vertexCollectionHandle.product());
    nVertices_ = 0;
-   for(reco::VertexCollection::const_iterator v=vertexColl.begin();
-       v!=vertexColl.end(); ++v) {
-     if(v->isValid() && !v->isFake()) ++nVertices_;
+   if(functionality_vertices_){
+     for(reco::VertexCollection::const_iterator v=vertexColl.begin();
+	 v!=vertexColl.end(); ++v) {
+       if(v->isValid() && !v->isFake()) ++nVertices_;
+     }
    }
 
    // load pixel vertices
@@ -670,7 +678,7 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
      try {iEvent.getByToken(*token,trajTrackAssociationHandle);} catch ( cms::Exception& ) {;}
      TrajToTrackMap.push_back(*trajTrackAssociationHandle.product());
    }
-
+   
    // sanity check
    if(!(!trackCollection.empty() && !trajectoryCollection.empty())) return;
 
@@ -717,156 +725,164 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
      }
    }
 
-   // determine if each cluster is on a track or not, and record the local angle
-   // to do this, we use the first track/traj collection
-   std::vector<double> clusterOntrackAngles = onTrackAngles(clusters,trajectoryCollection[0]);
-   std::vector<std::pair<double,double> > pixclusterOntrackAngles = onTrackAngles(pixelclusters,trajectoryCollection[0]);
-
    // determine if each cluster is on a track or not, and record the trackid
    std::vector< std::vector<int> > stripClusterOntrackIndices;
-   for(size_t i = 0; i<trackSize; ++i) {
-     stripClusterOntrackIndices.push_back(onTrack(clusters,trackCollection[i],globaltrackid_[i]+1));
-   }
    std::vector< std::vector<int> > pixelClusterOntrackIndices;
-   for(size_t i = 0; i<trackSize; ++i) {
-     pixelClusterOntrackIndices.push_back(onTrack(pixelclusters,trackCollection[i],globaltrackid_[i]+1));
+   if(functionality_events_){
+     for(size_t i = 0; i<trackSize; ++i) {
+       stripClusterOntrackIndices.push_back(onTrack(clusters,trackCollection[i],globaltrackid_[i]+1));
+     }
+     for(size_t i = 0; i<trackSize; ++i) {
+       pixelClusterOntrackIndices.push_back(onTrack(pixelclusters,trackCollection[i],globaltrackid_[i]+1));
+     }
+     nclustersOntrack_    = count_if(stripClusterOntrackIndices[0].begin(),stripClusterOntrackIndices[0].end(),bind2nd(not_equal_to<int>(), -1));
+     npixClustersOntrack_ = count_if(pixelClusterOntrackIndices[0].begin(),pixelClusterOntrackIndices[0].end(),bind2nd(not_equal_to<int>(), -1));
    }
-   nclustersOntrack_    = count_if(stripClusterOntrackIndices[0].begin(),stripClusterOntrackIndices[0].end(),bind2nd(not_equal_to<int>(), -1));
-   npixClustersOntrack_ = count_if(pixelClusterOntrackIndices[0].begin(),pixelClusterOntrackIndices[0].end(),bind2nd(not_equal_to<int>(), -1));
 
    // iterate over tracks
-   for (size_t coll = 0; coll<trackCollection.size(); ++coll) {
-     uint32_t n_hits_barrel=0;
-     uint32_t n_hits_lowprob=0;
-     for(TrajTrackAssociationCollection::const_iterator it = TrajToTrackMap[coll].begin(); it!=TrajToTrackMap[coll].end(); ++it) {
-       reco::TrackRef itTrack  = it->val;
-       edm::Ref<std::vector<Trajectory> > traj  = it->key; // bug to find type of the key
-       eta_   = itTrack->eta();
-       phi_   = itTrack->phi();
-       try { // not all track collections have the dedx info... indeed at best one.
-         dedxNoM_ = dEdxTrack1[itTrack].numberOfMeasurements();
-         dedx1_ = dEdxTrack1[itTrack].dEdx();
-         dedx2_ = dEdxTrack2[itTrack].dEdx();
-         dedx3_ = dEdxTrack3[itTrack].dEdx();
-       } catch ( cms::Exception& ) {
-         dedxNoM_ = 0;
-	 dedx1_ = 0.;
-	 dedx2_ = 0.;
-	 dedx3_ = 0.;
-       }
-       charge_ = itTrack->charge();
-       quality_ = itTrack->qualityMask();
-       foundhits_ = itTrack->found();
-       lostHits_  = itTrack->lost();
-       foundhitsStrips_ =  itTrack->hitPattern().numberOfValidStripHits();
-       foundhitsPixels_ =  itTrack->hitPattern().numberOfValidPixelHits();
-       losthitsStrips_  =  itTrack->hitPattern().numberOfLostStripHits(reco::HitPattern::TRACK_HITS);
-       losthitsPixels_  =  itTrack->hitPattern().numberOfLostPixelHits(reco::HitPattern::TRACK_HITS);
-       nLayers_ = uint32_t(itTrack->hitPattern().trackerLayersWithMeasurement());
-       p_ = itTrack->p();
-       pt_ = itTrack->pt();
-       chi2_  = itTrack->chi2();
-       ndof_ = (uint32_t)itTrack->ndof();
-       dz_ = itTrack->dz();
-       dzerr_ = itTrack->dzError();
-       dzCorr_ = itTrack->dz(beamSpot);
-       dxy_ = itTrack->dxy();
-       dxyerr_ = itTrack->dxyError();
-       dxyCorr_ = itTrack->dxy(beamSpot);
-       pterr_ = itTrack->ptError();
-       etaerr_ = itTrack->etaError();
-       phierr_ = itTrack->phiError();
-       qoverp_ = itTrack->qoverp();
-       xPCA_ = itTrack->vertex().x();
-       yPCA_ = itTrack->vertex().y();
-       zPCA_ = itTrack->vertex().z();
-       try { // only one track collection (at best) is connected to the main vertex
-	 if(!vertexColl.empty() && !vertexColl.begin()->isFake()) {
-           trkWeightpvtx_ =  vertexColl.begin()->trackWeight(itTrack);
-         } else
+   const Point beamSpot = recoBeamSpotHandle.isValid() ?
+     Point(recoBeamSpotHandle->x0(), recoBeamSpotHandle->y0(), recoBeamSpotHandle->z0()) :
+     Point(0, 0, 0);
+
+   if(functionality_tracks_){
+     for (size_t coll = 0; coll<trackCollection.size(); ++coll) {
+       uint32_t n_hits_barrel=0;
+       uint32_t n_hits_lowprob=0;
+       for(TrajTrackAssociationCollection::const_iterator it = TrajToTrackMap[coll].begin(); it!=TrajToTrackMap[coll].end(); ++it) {
+	 reco::TrackRef itTrack  = it->val;
+	 edm::Ref<std::vector<Trajectory> > traj  = it->key; // bug to find type of the key
+	 eta_   = itTrack->eta();
+	 phi_   = itTrack->phi();
+	 try { // not all track collections have the dedx info... indeed at best one.
+	   dedxNoM_ = dEdxTrack1[itTrack].numberOfMeasurements();
+	   dedx1_ = dEdxTrack1[itTrack].dEdx();
+	   dedx2_ = dEdxTrack2[itTrack].dEdx();
+	   dedx3_ = dEdxTrack3[itTrack].dEdx();
+	 } catch ( cms::Exception& ) {
+	   dedxNoM_ = 0;
+	   dedx1_ = 0.;
+	   dedx2_ = 0.;
+	   dedx3_ = 0.;
+	 }
+	 charge_ = itTrack->charge();
+	 quality_ = itTrack->qualityMask();
+	 foundhits_ = itTrack->found();
+	 lostHits_  = itTrack->lost();
+	 foundhitsStrips_ =  itTrack->hitPattern().numberOfValidStripHits();
+	 foundhitsPixels_ =  itTrack->hitPattern().numberOfValidPixelHits();
+	 losthitsStrips_  =  itTrack->hitPattern().numberOfLostStripHits(reco::HitPattern::TRACK_HITS);
+	 losthitsPixels_  =  itTrack->hitPattern().numberOfLostPixelHits(reco::HitPattern::TRACK_HITS);
+	 nLayers_         = uint32_t(itTrack->hitPattern().trackerLayersWithMeasurement());
+	 p_ = itTrack->p();
+	 pt_ = itTrack->pt();
+	 chi2_  = itTrack->chi2();
+	 ndof_ = (uint32_t)itTrack->ndof();
+	 dz_ = itTrack->dz();
+	 dzerr_ = itTrack->dzError();
+	 dzCorr_ = itTrack->dz(beamSpot);
+	 dxy_ = itTrack->dxy();
+	 dxyerr_ = itTrack->dxyError();
+	 dxyCorr_ = itTrack->dxy(beamSpot);
+	 pterr_ = itTrack->ptError();
+	 etaerr_ = itTrack->etaError();
+	 phierr_ = itTrack->phiError();
+	 qoverp_ = itTrack->qoverp();
+	 xPCA_ = itTrack->vertex().x();
+	 yPCA_ = itTrack->vertex().y();
+	 zPCA_ = itTrack->vertex().z();
+
+	 try { // only one track collection (at best) is connected to the main vertex
+	   if(!vertexColl.empty() && !vertexColl.begin()->isFake()) {
+	     trkWeightpvtx_ =  vertexColl.begin()->trackWeight(itTrack);
+	   } else
+	     trkWeightpvtx_ = 0.;
+	 } catch ( cms::Exception& ) {
 	   trkWeightpvtx_ = 0.;
-       } catch ( cms::Exception& ) {
-         trkWeightpvtx_ = 0.;
-       }
-       globaltrackid_[coll]++;
-       std::map<size_t,int>::const_iterator theV = trackVertices[coll].find(itTrack.key());
-       vertexid_ = (theV!=trackVertices[coll].end()) ? theV->second : 0;
-       // add missing hits (separate tree, common strip + pixel)
-       Trajectory::DataContainer const & measurements = traj->measurements();
-       if(functionality_missingHits_) {
-         for(Trajectory::DataContainer::const_iterator it = measurements.begin(); it!=measurements.end(); ++it) {
-           TrajectoryMeasurement::ConstRecHitPointer rechit = it->recHit();
-           if(!rechit->isValid()) {
-             // detid
-             detid_ = rechit->geographicalId();
-             // status
-             type_ = rechit->getType();
-             // position
-             LocalPoint local = it->predictedState().localPosition();
-             clPositionX_ = local.x();
-             clPositionY_ = local.y();
-             // global position
-             GlobalPoint global = it->predictedState().globalPosition();
-             globalX_ = global.x();
-             globalY_ = global.y();
-             globalZ_ = global.z();
-             // position in the measurement frame
-             measX_ = 0;
-             measY_ = 0;
-             if(type_ != TrackingRecHit::inactive ) {
-               const GeomDetUnit* gdu = static_cast<const GeomDetUnit*>(tracker_->idToDetUnit(detid_));
-               if(gdu && gdu->type().isTracker()) {
-                 const Topology& topo = gdu->topology();
-                 MeasurementPoint meas = topo.measurementPosition(local);
-                 measX_ = meas.x();
-                 measY_ = meas.y();
-               }
-             }
-             // local error
-             LocalError error = it->predictedState().localError().positionError();
-             errorX_ = error.xx();
-             errorY_ = error.yy();
-             // fill
-             missingHits_[coll]->Fill();
-           }
-         }
-       }
-       // compute the fraction of low probability pixels... will be added to the event tree
-       for(trackingRecHit_iterator it = itTrack->recHitsBegin(); it!=itTrack->recHitsEnd(); ++it) {
-            const TrackingRecHit* hit = &(**it);
-	    const SiPixelRecHit* pixhit = dynamic_cast<const SiPixelRecHit*>(hit);
-	    if(pixhit) {
-	       DetId detId = pixhit->geographicalId();
-	       if(detId.subdetId()==PixelSubdetector::PixelBarrel) {
-	         ++n_hits_barrel;
-		 double proba = pixhit->clusterProbability(0);
-		 if(proba<=0.0) ++n_hits_lowprob;
+	 }
+
+	 globaltrackid_[coll]++;
+	 std::map<size_t,int>::const_iterator theV = trackVertices[coll].find(itTrack.key());
+	 vertexid_ = (theV!=trackVertices[coll].end()) ? theV->second : 0;
+
+	 // add missing hits (separate tree, common strip + pixel)
+	 Trajectory::DataContainer const & measurements = traj->measurements();
+	 if(functionality_missingHits_) {
+	   for(Trajectory::DataContainer::const_iterator it = measurements.begin(); it!=measurements.end(); ++it) {
+	     TrajectoryMeasurement::ConstRecHitPointer rechit = it->recHit();
+	     if(!rechit->isValid()) {
+	       // detid
+	       detid_ = rechit->geographicalId();
+	       // status
+	       type_ = rechit->getType();
+	       // position
+	       LocalPoint local = it->predictedState().localPosition();
+	       clPositionX_ = local.x();
+	       clPositionY_ = local.y();
+	       // global position
+	       GlobalPoint global = it->predictedState().globalPosition();
+	       globalX_ = global.x();
+	       globalY_ = global.y();
+	       globalZ_ = global.z();
+	       // position in the measurement frame
+	       measX_ = 0;
+	       measY_ = 0;
+	       if(type_ != TrackingRecHit::inactive ) {
+		 const GeomDetUnit* gdu = static_cast<const GeomDetUnit*>(tracker_->idToDetUnit(detid_));
+		 if(gdu && gdu->type().isTracker()) {
+		   const Topology& topo = gdu->topology();
+		   MeasurementPoint meas = topo.measurementPosition(local);
+		   measX_ = meas.x();
+		   measY_ = meas.y();
+		 }
 	       }
-	    }
+	       // local error
+	       LocalError error = it->predictedState().localError().positionError();
+	       errorX_ = error.xx();
+	       errorY_ = error.yy();
+	       // fill
+	       missingHits_[coll]->Fill();
+	     }
+	   }
+	 }
+       
+	 // compute the fraction of low probability pixels... will be added to the event tree
+	 for(trackingRecHit_iterator it = itTrack->recHitsBegin(); it!=itTrack->recHitsEnd(); ++it) {
+	   const TrackingRecHit* hit = &(**it);
+	   const SiPixelRecHit* pixhit = dynamic_cast<const SiPixelRecHit*>(hit);
+	   if(pixhit) {
+	     DetId detId = pixhit->geographicalId();
+	     if(detId.subdetId()==PixelSubdetector::PixelBarrel) {
+	       ++n_hits_barrel;
+	       double proba = pixhit->clusterProbability(0);
+	       if(proba<=0.0) ++n_hits_lowprob;
+	     }
+	   }
+	 }
+	 tracks_[coll]->Fill();
        }
-       // fill the track tree
-       if(functionality_tracks_) tracks_[coll]->Fill();
+       lowPixelProbabilityFraction_[coll] = n_hits_barrel>0 ? (float)n_hits_lowprob/n_hits_barrel : -1.;
      }
-     lowPixelProbabilityFraction_[coll] = n_hits_barrel>0 ? (float)n_hits_lowprob/n_hits_barrel : -1.;
    }
 
+   uint32_t localCounter = 0;
    // iterate over clusters
    nclusters_ = 0;
-   std::vector<double>::const_iterator angleIt = clusterOntrackAngles.begin();
-   uint32_t localCounter = 0;
+   if(functionality_offtrackClusters_||functionality_ontrackClusters_){
+     std::vector<double> clusterOntrackAngles = onTrackAngles(clusters,trajectoryCollection[0]);
+     std::vector<double>::const_iterator angleIt = clusterOntrackAngles.begin();     
+     for (edmNew::DetSetVector<SiStripCluster>::const_iterator DSViter=clusters->begin(); DSViter!=clusters->end();DSViter++ ) {
+       edmNew::DetSet<SiStripCluster>::const_iterator begin=DSViter->begin();
+       edmNew::DetSet<SiStripCluster>::const_iterator end  =DSViter->end();
+       uint32_t detid = DSViter->id();
+       nclusters_ += DSViter->size();
 
-   for (edmNew::DetSetVector<SiStripCluster>::const_iterator DSViter=clusters->begin(); DSViter!=clusters->end();DSViter++ ) {
-     edmNew::DetSet<SiStripCluster>::const_iterator begin=DSViter->begin();
-     edmNew::DetSet<SiStripCluster>::const_iterator end  =DSViter->end();
-     uint32_t detid = DSViter->id();
-     nclusters_ += DSViter->size();
-     if(functionality_offtrackClusters_||functionality_ontrackClusters_) {
        for(edmNew::DetSet<SiStripCluster>::const_iterator iter=begin;iter!=end;++iter,++angleIt,++localCounter) {
          SiStripClusterInfo* siStripClusterInfo = new SiStripClusterInfo(*iter,iSetup,detid,std::string("")); //string = quality label
          // general quantities
          for(size_t i=0; i< trackSize; ++i) {
            trackid_[i] = stripClusterOntrackIndices[i][localCounter];
          }
+
          onTrack_ = (trackid_[0] != (uint32_t)-1);
          clWidth_ = siStripClusterInfo->width();
          clPosition_ = siStripClusterInfo->baryStrip();
@@ -901,46 +917,58 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
        }
      }
    }
-
-   // iterate over pixel clusters
-   npixClusters_ = 0;
-   std::vector<std::pair<double,double> >::const_iterator pixAngleIt = pixclusterOntrackAngles.begin();
-   localCounter = 0;
-   for (edmNew::DetSetVector<SiPixelCluster>::const_iterator DSViter=pixelclusters->begin(); DSViter!=pixelclusters->end();DSViter++ ) {
-     edmNew::DetSet<SiPixelCluster>::const_iterator begin=DSViter->begin();
-     edmNew::DetSet<SiPixelCluster>::const_iterator end  =DSViter->end();
-     uint32_t detid = DSViter->id();
-     npixClusters_ += DSViter->size();
-     if(functionality_pixclusters_) {
-       for(edmNew::DetSet<SiPixelCluster>::const_iterator iter=begin;iter!=end;++iter,++pixAngleIt,++localCounter) {
-         // general quantities
-         for(size_t i=0; i< trackSize; ++i) {
-           trackid_[i] = pixelClusterOntrackIndices[i][localCounter];
-         }
-         onTrack_ = (trackid_[0] != (uint32_t)-1);
-         clPositionX_ = iter->x();
-         clPositionY_ = iter->y();
-         clSize_  = iter->size();
-         clSizeX_ = iter->sizeX();
-         clSizeY_ = iter->sizeY();
-         alpha_ = pixAngleIt->first;
-         beta_  = pixAngleIt->second;
-         charge_ = (iter->charge())/1000.;
-         chargeCorr_ = charge_ * sqrt( 1.0 / ( 1.0/pow( tan(alpha_), 2 ) + 1.0/pow( tan(beta_), 2 ) + 1.0 ))/1000.;
-         // global position
-         const PixelGeomDetUnit* pgdu = static_cast<const PixelGeomDetUnit*>(tracker_->idToDet(detid));
-         Surface::GlobalPoint gp = pgdu->surface().toGlobal(pgdu->specificTopology().localPosition(MeasurementPoint(clPositionX_,clPositionY_)));
-         globalX_ = gp.x();
-         globalY_ = gp.y();
-         globalZ_ = gp.z();
-         // cabling
-         detid_ = detid;
-         // fill
-         pixclusters_->Fill();
-       }
+   else{
+     for (edmNew::DetSetVector<SiStripCluster>::const_iterator DSViter=clusters->begin(); DSViter!=clusters->end();DSViter++ ) {
+       nclusters_ += DSViter->size();
      }
    }
 
+   // iterate over pixel clusters
+   npixClusters_ = 0;
+   localCounter = 0;
+   if(functionality_pixclusters_){
+     // find on track pixel clusters 
+     std::vector<std::pair<double,double> > pixclusterOntrackAngles = onTrackAngles(pixelclusters,trajectoryCollection[0]);
+     std::vector<std::pair<double,double> >::const_iterator pixAngleIt = pixclusterOntrackAngles.begin();
+
+     for (edmNew::DetSetVector<SiPixelCluster>::const_iterator DSViter=pixelclusters->begin(); DSViter!=pixelclusters->end();DSViter++ ) {
+       edmNew::DetSet<SiPixelCluster>::const_iterator begin=DSViter->begin();
+       edmNew::DetSet<SiPixelCluster>::const_iterator end  =DSViter->end();
+       uint32_t detid = DSViter->id();
+       npixClusters_ += DSViter->size();
+       for(edmNew::DetSet<SiPixelCluster>::const_iterator iter=begin;iter!=end;++iter,++pixAngleIt,++localCounter) {
+	 // general quantities
+	 for(size_t i=0; i< trackSize; ++i) {
+	   trackid_[i] = pixelClusterOntrackIndices[i][localCounter];
+	 }
+	 onTrack_ = (trackid_[0] != (uint32_t)-1);
+	 clPositionX_ = iter->x();
+	 clPositionY_ = iter->y();
+	 clSize_  = iter->size();
+	 clSizeX_ = iter->sizeX();
+	 clSizeY_ = iter->sizeY();
+	 alpha_ = pixAngleIt->first;
+	 beta_  = pixAngleIt->second;
+	 charge_ = (iter->charge())/1000.;
+	 chargeCorr_ = charge_ * sqrt( 1.0 / ( 1.0/pow( tan(alpha_), 2 ) + 1.0/pow( tan(beta_), 2 ) + 1.0 ))/1000.;
+	 // global position
+	 const PixelGeomDetUnit* pgdu = static_cast<const PixelGeomDetUnit*>(tracker_->idToDet(detid));
+	 Surface::GlobalPoint gp = pgdu->surface().toGlobal(pgdu->specificTopology().localPosition(MeasurementPoint(clPositionX_,clPositionY_)));
+	 globalX_ = gp.x();
+	 globalY_ = gp.y();
+	 globalZ_ = gp.z();
+	 // cabling
+	 detid_ = detid;
+	 // fill
+	   pixclusters_->Fill();
+       }
+     }
+   }
+   else{
+     for (edmNew::DetSetVector<SiPixelCluster>::const_iterator DSViter=pixelclusters->begin(); DSViter!=pixelclusters->end();DSViter++ )
+       npixClusters_ += DSViter->size();
+   }
+   
    // topological quantities - uses the first track collection
    EventShape shape(trackCollection[0]);
    math::XYZTLorentzVectorF thrust = shape.thrust();
@@ -954,7 +982,6 @@ TrackerDpgAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    
    // fill event tree
    if(functionality_events_) event_->Fill();
-   
 }
 
 // ------------ method called once each job just before starting event loop  ------------

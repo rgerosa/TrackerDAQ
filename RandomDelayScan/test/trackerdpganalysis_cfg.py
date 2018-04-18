@@ -55,6 +55,7 @@ else:
                                 fileNames = readFiles)
     process.source.skipEvents = cms.untracked.uint32(options.eventToSkip)
 
+
 if options.jsonFile != "": ### to be checked / created by hand when the runs are take
     process.source.lumisToProcess = LumiList.LumiList(filename = options.jsonFile).getVLuminosityBlockRange()
 
@@ -66,8 +67,8 @@ process.GlobalTag = GlobalTag(process.GlobalTag, '101X_dataRun2_Prompt_v9', '')
 process.options = cms.untracked.PSet(
     allowUnscheduled = cms.untracked.bool(True),
     wantSummary = cms.untracked.bool(True),
-    numberOfThreads = cms.untracked.uint32(1),
-    numberOfStreams = cms.untracked.uint32(1))
+    numberOfThreads = cms.untracked.uint32(4),
+    numberOfStreams = cms.untracked.uint32(4))
 
 
 #Geometry and magnetic field to be loaded
