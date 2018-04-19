@@ -62,7 +62,7 @@ if options.jsonFile != "": ### to be checked / created by hand when the runs are
 # Conditions (Global Tag is used here):
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 from Configuration.AlCa.GlobalTag import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, '101X_dataRun2_Prompt_v9', '')
+process.GlobalTag = GlobalTag(process.GlobalTag, '101X_dataRun2_Express_v7', '')
 
 process.options = cms.untracked.PSet(
     allowUnscheduled = cms.untracked.bool(True),

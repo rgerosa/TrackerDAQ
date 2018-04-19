@@ -55,14 +55,14 @@ if __name__ == '__main__':
 
   listOfFiles = [];
   if not options.isDatFile:
-    os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select find "+options.inputDIR+" -name \"*.root\" > file_delay"+str(options.delayStep)+".temp ")
+    os.system("/afs/cern.ch/project/eos/installation/0.3.15/bin/eos.select find "+options.inputDIR+" -name \"*.root\" > file_delay"+str(options.delayStep)+".temp ")
     file = open("file_delay"+str(options.delayStep)+".temp","r")
     for line in file:
       if line == "" or line == "\n": continue;
       if not ".root" in line: continue;
       listOfFiles.append(line.replace("\n",""));
   else:
-    os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select find "+options.inputDIR+" -name \"*.dat\" > file_delay"+str(options.delayStep)+".temp ")
+    os.system("/afs/cern.ch/project/eos/installation/0.3.15/bin/eos.select find "+options.inputDIR+" -name \"*.dat\" > file_delay"+str(options.delayStep)+".temp ")
     file = open("file_delay"+str(options.delayStep)+".temp","r")
     for line in file:
       if line == "" or line == "\n": continue;
@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
   os.system("rm file_delay"+str(options.delayStep)+".temp");  
   os.system("mkdir -p "+options.jobDIR);
-  os.system("/afs/cern.ch/project/eos/installation/cms/bin/eos.select  mkdir -p "+options.outputDIR);
+  os.system("/afs/cern.ch/project/eos/installation/0.3.15/bin/eos.select  mkdir -p "+options.outputDIR);
 
   ## open each file and split according to eventsPerJob
   ifile = 0;
@@ -96,8 +96,9 @@ if __name__ == '__main__':
         job.write('cd '+currentDIR+"\n");
         job.write('eval `scramv1 runtime -sh` \n');
         job.write('cd - \n');
-        job.write('cp '+currentDIR+'../trackerdpganalysis_cfg.py ./ \n');
-        job.write('cp '+currentDIR+'/*delaystep*'+str(options.delayStep)+'*xml ./ \n');
+        job.write('cp '+currentDIR+'/../trackerdpganalysis_cfg.py ./ \n');
+        job.write('cp '+currentDIR+'/*delayStep_'+str(options.delayStep)+'*xml ./ \n');
+        job.write('cp '+currentDIR+'/PSUmapping.csv ./ \n');
         job.write('cp '+currentDIR+'/'+options.jsonFile+' ./ \n');
         job.write('cmsRun trackerdpganalysis_cfg.py inputFiles=root://eoscms.cern.ch//'+str(filename)+' delayStep='+str(options.delayStep)+' eventToSkip='+str(starEvent[ijob])+' maxEvents='+str(options.eventsPerJob)+' ouputFileName=trackerDPG_'+str(njob)+".root jsonFile="+options.jsonFile+" isRawFile="+str(isRawFile)+" isDatFile="+str(isDatFile)+"\n");
         job.write("xrdcp -f trackerDPG_"+str(njob)+".root root://eoscms.cern.ch//eos/cms/"+options.outputDIR+"\n");
@@ -136,8 +137,9 @@ if __name__ == '__main__':
         job.write('cd '+currentDIR+"\n");
         job.write('eval `scramv1 runtime -sh` \n');
         job.write('cd - \n');
-        job.write('cp '+currentDIR+'/trackerdpganalysis_cfg.py ./ \n');
-        job.write('cp '+currentDIR+'/*delaystep*'+str(options.delayStep)+'*xml ./ \n');
+        job.write('cp '+currentDIR+'/../trackerdpganalysis_cfg.py ./ \n');
+        job.write('cp '+currentDIR+'/*delayStep_'+str(options.delayStep)+'*xml ./ \n');
+        job.write('cp '+currentDIR+'/PSUmapping.csv ./ \n');
         job.write('cp '+currentDIR+'/'+options.jsonFile+' ./ \n');
         job.write('cmsRun trackerdpganalysis_cfg.py inputFiles=root://eoscms.cern.ch//'+str(filename)+' delayStep='+str(options.delayStep)+' eventToSkip='+str(starEvent[ijob])+' maxEvents='+str(options.eventsPerJob)+' ouputFileName=trackerDPG_'+str(njob)+".root jsonFile="+str(options.jsonFile)+" isRawFile="+str(isRawFile)+" isDatFile="+str(isDatFile)+"\n");
         job.write("xrdcp -f trackerDPG_"+str(njob)+".root root://eoscms.cern.ch//eos/cms/"+options.outputDIR+"\n");
