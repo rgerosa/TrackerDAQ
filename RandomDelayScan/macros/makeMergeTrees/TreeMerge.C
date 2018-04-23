@@ -19,7 +19,7 @@ void TreeMerge(string destination, string reference, string inputPath, bool canc
   system("rm file.temp");
 
   // make hadd from a command line
-  gSystem->Exec(Form("hadd -f %s %s/*root",destination.c_str(),inputPath.c_str()));
+  gSystem->Exec(Form("hadd -k -f %s %s/*root",destination.c_str(),inputPath.c_str()));
 
   std::cout << "Reindexing the element of the merged tree..."  << std::endl;
   TFile* f = TFile::Open(destination.c_str(),"update");

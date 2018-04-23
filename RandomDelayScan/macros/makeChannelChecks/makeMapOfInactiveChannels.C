@@ -38,11 +38,11 @@ void  makeMapOfInactiveChannels(string inputFileName,
   TFile* inputPSUMapFile = TFile::Open(inputPSUMap.c_str(),"READ");
   TTree* psuTree         = (TTree*) inputPSUMapFile->Get("readoutMap");
   uint32_t detid, dcuId;
-  string* PSUName;
+  string PSUName;
   psuTree->SetBranchAddress("PSUname",&PSUName);
   psuTree->SetBranchAddress("detid",&detid);
   psuTree->SetBranchAddress("dcuId",&dcuId);
-  
+
   // output file and output tree structure
   std::cout<<"### Start loop "<<std::endl;
 
@@ -53,8 +53,9 @@ void  makeMapOfInactiveChannels(string inputFileName,
     inputTree->GetEntry(iEvent);
     if(notFound_i == 0) continue; // skip bad channels in the fed
     inactiveChannelMap <<Detid_i<<" 1 "<<"\n";
-    psuTree->GetEntryWithIndex(Detid_i);
-    inactiveChannelFile <<" Detid_i "<<Detid_i<<" fedId "<<fedId_i<<" fedCh "<<fedCh_i<<" fecCrate "<<fecCrate_i<<" fecSlot "<<fecSlot_i<<" fecRing "<<fecRing_i<<" ccuAdd "<<ccuAdd_i<<" ccuChan "<<ccuChan_i<<" lldChannel "<<lldChannel_i<<" PSU "<<*PSUName<<"\n";
+    psuTree->GetEntryWithIndex(Detid_i);    
+    inactiveChannelFile <<" Detid_i "<<Detid_i<<" fedId "<<fedId_i<<" fedCh "<<fedCh_i<<" fecCrate "<<fecCrate_i<<" fecSlot "<<fecSlot_i<<" fecRing "<<fecRing_i<<" ccuAdd "<<ccuAdd_i<<" ccuChan "<<ccuChan_i<<" lldChannel "<<lldChannel_i<<" PSU "<<PSUName<<"\n";
+    
   }
   std::cout<<"### Close files "<<std::endl;
   inactiveChannelFile.close();

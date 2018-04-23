@@ -102,7 +102,7 @@ void skimTrees(string inputFileName, string outputFileName, bool isBOn = true) {
   string clusterSelection;
   if(isBOn){
     eventSelection   = "nVertices > 0 && ";
-    trackSelection   = "pt > 0.9 && quality>2 && pterr/pt < 0.2 && ";
+    trackSelection   = "pt > 1.5 && quality>2 && pterr/pt < 0.2 && dedx1 < 5 ";
     vertexSelection  = "";
     clusterSelection = "onTrack && angle > 0 && maxCharge < 254";
   }

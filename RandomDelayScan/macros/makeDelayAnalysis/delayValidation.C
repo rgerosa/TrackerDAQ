@@ -17,12 +17,15 @@ using namespace std;
 // parametrize profile with a gaussian shape
 static bool isGaussian = true;
 // reduce the number of events by
-static int  reductionFactor = 1;
+static int  reductionFactor = 2;
 
 static TFile*   outputFitFile = NULL;
 static TCanvas* outputCanvasFit = NULL;
 
 int makeLandauGausFit(TH1F* histoToFit, TH1F* histoToFill, string subdetector, const float & delay, const string & observable, const string & outputDIR, const string & postfix = ""){
+
+  RooMsgService::instance().setSilentMode(kTRUE);
+  RooMsgService::instance().setGlobalKillBelow(RooFit::ERROR) ;
 
   float xMin   = 0, xMax = 0;
   int   nBinsX = 0;
@@ -42,7 +45,7 @@ int makeLandauGausFit(TH1F* histoToFit, TH1F* histoToFill, string subdetector, c
   // covert histogram in a RooDataHist                                                                                                                                                               
   RooDataHist* chargeDistribution = new RooDataHist(histoToFit->GetName(),"",*vars,histoToFit);
   // Build a Landau PDF                                                                                                                                                                              
-  RooRealVar*  mean_landau  = new RooRealVar("mean_landau","",histoToFit->GetRMS(),1.,100);
+  RooRealVar*  mean_landau  = new RooRealVar("mean_landau","",histoToFit->GetMean(),1.,150);
   RooRealVar*  sigma_landau = new RooRealVar("sigma_landau","",histoToFit->GetRMS(),1.,100);
   RooLandau*   landau       = new RooLandau("landau","",*charge,*mean_landau,*sigma_landau);
   // Build a Gaussian PDF                                                                                                                                                                            

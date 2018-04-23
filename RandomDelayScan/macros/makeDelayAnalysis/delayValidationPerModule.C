@@ -32,7 +32,7 @@ using namespace RooFit;
 // parametrize profile with a gaussian shape
 static bool isGaussian = true;
 // reduce the number of events by
-static int reductionFactor = 1;
+static int reductionFactor = 3;
 // min number of filled bins
 static int minFilledBin    = 4;
 // max allowed delay
@@ -205,8 +205,8 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
 	// covert histogram in a RooDataHist                                                                                                                                                        
 	RooDataHist* chargeDistribution = new RooDataHist(itHisto->second->GetName(),"",*vars,itHisto->second);
 	// Build a Landau PDF                                                                                                                                                                        
-	RooRealVar*  mean_landau  = new RooRealVar("mean_landau","",itHisto->second->GetRMS(),1.,100);
-	RooRealVar*  sigma_landau = new RooRealVar("sigma_landau","",itHisto->second->GetRMS(),1.,100);
+	RooRealVar*  mean_landau  = new RooRealVar("mean_landau","",itHisto->second->GetMean(),1.,itHisto->second->GetMean()*10);
+	RooRealVar*  sigma_landau = new RooRealVar("sigma_landau","",itHisto->second->GetRMS(),1.,itHisto->second->GetRMS()*10);
 	RooLandau*   landau       = new RooLandau("landau","",*charge,*mean_landau,*sigma_landau);
 	// Build a Gaussian PDF                                                                                                                                                                   
 	RooRealVar*  mean_gauss  = new RooRealVar("mean_gauss","",0.,-150,150);
@@ -215,7 +215,7 @@ void ChannnelPlots(const std::vector<TTree* > & tree,
 	// Make a convolution                                                                                                                                                                        
 	RooFFTConvPdf* landauXgauss = new RooFFTConvPdf("landauXgauss","",*charge,*landau,*gauss);
 	// Make an extended PDF                                                                                                                                                                       
-	RooRealVar*   normalization = new RooRealVar("normalization","",itHisto->second->Integral(),itHisto->second->Integral()/5,itHisto->second->Integral()*5);
+	RooRealVar*   normalization = new RooRealVar("normalization","",itHisto->second->Integral(),itHisto->second->Integral()/10,itHisto->second->Integral()*10);
 	RooExtendPdf* totalPdf      = new RooExtendPdf("totalPdf","",*landauXgauss,*normalization);
 
 	// Perform the FIT                                                                                                                                                                        
@@ -604,7 +604,7 @@ void saveOutputTree(const vector<TTree*> & readoutMap, map<uint32_t,TH1F* > & ma
 // by dedault some fit results are store in a root file, a text dump: detid fitted delay is produced, as well as deid delay uncertainty
 void delayValidationPerModule(			      
 			      string inputDIR, 
-			      string file1    = "../data/nocorrection.root", // no correction file
+			      string file1        = "../data/nocorrection.root", // no correction file
 			      string postfix      = "merged", // sub string to be used to find merged files
 			      string observable   = "maxCharge",
 			      string outputDIR    = "/home/rgerosa/TrackerDAQ/DELAY_SCAN/SkimmedTrees/DelayPerModule_test_maxCharge/",
