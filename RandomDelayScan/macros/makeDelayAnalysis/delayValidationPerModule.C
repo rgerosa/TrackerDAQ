@@ -32,7 +32,7 @@ using namespace RooFit;
 // parametrize profile with a gaussian shape
 static bool isGaussian = true;
 // reduce the number of events by
-static int reductionFactor = 3;
+static int reductionFactor = 1;
 // min number of filled bins
 static int minFilledBin    = 4;
 // max allowed delay
